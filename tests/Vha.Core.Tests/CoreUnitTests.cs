@@ -301,9 +301,9 @@ namespace Vha.Core.Tests
         [Fact]
         public void Parses_the_forms_used_in_the_documentation()
         {
-            var s = VCenterConnectionSpec.Parse("Connect-VIServer vc6.crifnet.com -User DCOLL\\svcJelenaEt -Password 'p@ss;w$rd!' -Protocol https");
-            Assert.Equal("vc6.crifnet.com", s.Server);
-            Assert.Equal("DCOLL\\svcJelenaEt", s.User);
+            var s = VCenterConnectionSpec.Parse("Connect-VIServer vc01.example.local -User EXAMPLE\\svcVha -Password 'p@ss;w$rd!' -Protocol https");
+            Assert.Equal("vc01.example.local", s.Server);
+            Assert.Equal("EXAMPLE\\svcVha", s.User);
             Assert.Equal("p@ss;w$rd!", s.Password);
             Assert.Empty(s.Warnings);
             Assert.Contains("-Server $vcServer", s.Script);
@@ -314,7 +314,7 @@ namespace Vha.Core.Tests
         [Fact]
         public void Server_only_and_trusted_domain_form()
         {
-            var s = VCenterConnectionSpec.Parse("Connect-VIServer vc6.crifnet.com -Protocol https");
+            var s = VCenterConnectionSpec.Parse("Connect-VIServer vc01.example.local -Protocol https");
             Assert.Null(s.User);
             Assert.DoesNotContain("$vcUser", s.Script);
             Assert.Single(s.Variables);

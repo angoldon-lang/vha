@@ -7,7 +7,7 @@
   a database with a file elsewhere would not follow the disks and would fail at the first failover.
     sqlcmd -S . -d Jelena -i 03_register_databases.sql -v AgName="isql2016a-AG01" MountRoot="M:\isql2016a-AG01\"
 */
-SET NOCOUNT ON; SET XACT_ABORT ON;
+SET NOCOUNT ON; SET XACT_ABORT ON; SET ANSI_WARNINGS OFF;
 USE [Jelena];
 DECLARE @AgName NVARCHAR(128) = N'$(AgName)', @Root NVARCHAR(400) = N'$(MountRoot)';
 DECLARE @AgId INT = (SELECT ID FROM dbo.JAGroups WHERE Name = @AgName);
@@ -17,7 +17,7 @@ DECLARE @candidates TABLE (DBName SYSNAME PRIMARY KEY, PrimaryFile NVARCHAR(400)
 INSERT @candidates
 SELECT d.name,
        MAX(CASE WHEN mf.file_id = 1 THEN mf.physical_name END),
-       SUM(CASE WHEN mf.physical_name LIKE @Root + N'%' THEN 0 ELSE 1 END)
+       SUM(CASE WHEN LEFT(mf.physical_name, LEN(@Root)) = @Root THEN 0 ELSE 1 END)   -- no LIKE: [ % _ in a path are not wildcards
 FROM sys.databases d JOIN sys.master_files mf ON mf.database_id = d.database_id
 WHERE d.database_id > 4 AND d.name NOT IN (N'Jelena', N'distribution', N'admin') AND d.state = 0
 GROUP BY d.name;

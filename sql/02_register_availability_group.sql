@@ -7,7 +7,7 @@
   SQLCMD usage:
     sqlcmd -S . -d Jelena -i 02_register_availability_group.sql ^
       -v AgName="isql2016a-AG01" VmName="ENTGSQL01" NodeList="ENTGSQL01|entgsql01.corp.local|entgsql01\isql2016a;ENTGSQL02|entgsql02.corp.local|entgsql02\isql2016a" ^
-         Owner="ENTGSQL01" CpuMHz="0" MemMB="0"
+         Owner="ENTGSQL01" CpuMHz="0" MemMB="0" CsOptions="Connection Timeout=16;MultipleActiveResultSets=True;Encrypt=True;TrustServerCertificate=True"
   NodeList format:  VMName|DNSName|SqlInstance ; ...   (the connection string is generated; add options below if needed)
 */
 SET NOCOUNT ON; SET XACT_ABORT ON;
@@ -19,7 +19,7 @@ DECLARE @NodeList  NVARCHAR(MAX) = N'$(NodeList)';
 DECLARE @Owner     NVARCHAR(128) = N'$(Owner)';
 DECLARE @CpuMHz    INT           = $(CpuMHz);
 DECLARE @MemMB     INT           = $(MemMB);
-DECLARE @CsOptions NVARCHAR(200) = N'Connection Timeout=16;MultipleActiveResultSets=True;Encrypt=True;TrustServerCertificate=True';
+DECLARE @CsOptions NVARCHAR(400) = N'$(CsOptions)';   -- appended to every generated connection string, e.g. Connection Timeout=16;MultipleActiveResultSets=True;Encrypt=True;TrustServerCertificate=True
 
 IF @AgName = N'' OR @VmName = N'' OR @NodeList = N'' THROW 50001, 'AgName, VmName and NodeList are mandatory', 1;
 

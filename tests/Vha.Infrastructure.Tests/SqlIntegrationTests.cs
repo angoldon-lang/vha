@@ -52,7 +52,7 @@ namespace Vha.Infrastructure.Tests
             Assert.Equal("1", Convert.ToString(Lab.Scalar(Lab.ConnB("Jelena"), "SELECT CAST(is_local AS INT) FROM dbo.JNodes WHERE VMName='VM2'")));
             // re-running the registration must not change the owner, duplicate nodes or the SCN
             Lab.Exec(Lab.ConnA("Jelena"), "UPDATE dbo.JAGroups SET CurrentOwner = 'VM2'");
-            Lab.RunScript(Lab.ConnA("Jelena"), "02_register_availability_group.sql", new Dictionary<string, string> { { "AgName", "AG01" }, { "VmName", "VM1" }, { "NodeList", "VM1|vm1.local|localhost,14331;VM2|vm2.local|localhost,14332" }, { "Owner", "VM1" }, { "CpuMHz", "100" }, { "MemMB", "200" } });
+            Lab.RunScript(Lab.ConnA("Jelena"), "02_register_availability_group.sql", new Dictionary<string, string> { { "AgName", "AG01" }, { "VmName", "VM1" }, { "NodeList", "VM1|vm1.local|localhost,14331;VM2|vm2.local|localhost,14332" }, { "Owner", "VM1" }, { "CpuMHz", "100" }, { "MemMB", "200" }, { "CsOptions", "Encrypt=True" } });
             Assert.Equal("VM2", Convert.ToString(Lab.Scalar(Lab.ConnA("Jelena"), "SELECT CurrentOwner FROM dbo.JAGroups")));
             Assert.Equal("2", Convert.ToString(Lab.Scalar(Lab.ConnA("Jelena"), "SELECT COUNT(*) FROM dbo.JNodes")));
             Assert.Equal("100", Convert.ToString(Lab.Scalar(Lab.ConnA("Jelena"), "SELECT ResCpuMHz FROM dbo.JAGroups")));
@@ -63,7 +63,7 @@ namespace Vha.Infrastructure.Tests
         public void Registration_script_rejects_bad_input()
         {
             Lab.Reset(registerAg: false);
-            var vars = new Dictionary<string, string> { { "AgName", "AG01" }, { "VmName", "VMX" }, { "NodeList", "VM1|vm1.local|a;VM2|vm2.local|b" }, { "Owner", "VM1" }, { "CpuMHz", "0" }, { "MemMB", "0" } };
+            var vars = new Dictionary<string, string> { { "AgName", "AG01" }, { "VmName", "VMX" }, { "NodeList", "VM1|vm1.local|a;VM2|vm2.local|b" }, { "Owner", "VM1" }, { "CpuMHz", "0" }, { "MemMB", "0" }, { "CsOptions", "" } };
             Assert.Throws<SqlException>(() => Lab.RunScript(Lab.ConnA("Jelena"), "02_register_availability_group.sql", vars));   // VmName not in NodeList
             vars["VmName"] = "VM1"; vars["NodeList"] = "VM1|vm1.local|a";
             Assert.Throws<SqlException>(() => Lab.RunScript(Lab.ConnA("Jelena"), "02_register_availability_group.sql", vars));   // fewer than 2 nodes

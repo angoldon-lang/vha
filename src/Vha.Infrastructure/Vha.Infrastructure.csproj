@@ -9,7 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Vha.Core\Vha.Core.csproj" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.PowerShell.5.ReferenceAssemblies" Version="1.1.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.PowerShell.5.ReferenceAssemblies" Version="1.1.0" PrivateAssets="all" IncludeAssets="compile" />
     <PackageReference Include="TaskScheduler" Version="2.10.1" />
     <Reference Include="System.Management" />
     <Reference Include="System.Security" />

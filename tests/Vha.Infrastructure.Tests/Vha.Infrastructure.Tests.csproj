@@ -27,6 +27,7 @@
     <Compile Include="..\..\src\Vha.Infrastructure\PowerShell\*.cs" Link="Infra\PowerShell\%(Filename)%(Extension)" />
     <Compile Include="..\..\src\Vha.Infrastructure\Sql\*.cs" Link="Infra\Sql\%(Filename)%(Extension)" />
     <Compile Include="..\..\src\Vha.Infrastructure\Csu\*.cs" Link="Infra\Csu\%(Filename)%(Extension)" />
+    <Compile Include="..\..\src\Vha.Infrastructure\Setup\*.cs" Link="Infra\Setup\%(Filename)%(Extension)" />
     <Compile Include="..\..\src\Vha.Infrastructure\Windows\FileAcl.cs" Link="Infra\Windows\FileAcl.cs" />
     <Compile Include="..\..\src\Vha.Infrastructure\Windows\SecretProtector.cs" Link="Infra\Windows\SecretProtector.cs" />
   </ItemGroup>

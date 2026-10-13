@@ -18,6 +18,12 @@ jobs:
         run: tests/integration/start-lab.sh
       - name: Integration tests (real SQL Server 2025, real PowerShell engine)
         run: dotnet test tests/Vha.Infrastructure.Tests --configuration Release --logger "trx;LogFileName=results-infra.trx"
+      - name: Build the installation package
+        run: pwsh -File installer/Build-Package.ps1 -SkipTests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VhaSetup-package
+          path: dist/VhaSetup-*.zip
       - uses: actions/upload-artifact@v4
         if: always()
         with:

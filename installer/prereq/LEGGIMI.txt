@@ -1,0 +1,15 @@
+Prerequisiti
+============
+Il setup installa da solo:
+  * funzionalita' Windows "Failover Clustering" e PowerShell remoting;
+  * .NET Framework 4.8 (gia' presente su Windows Server 2022/2025);
+  * modulo VMware.PowerCLI 12 o successivo.
+
+Server con accesso a Internet: nessuna azione, PowerCLI viene scaricato dalla PowerShell Gallery.
+Server senza Internet: su un PC con Internet esegui
+      .\Get-Prerequisites.ps1
+che scarica in questa cartella
+      ndp48-x86-x64-allos-enu.exe   (installer offline Microsoft, firma verificata)
+      PowerCLI\                     (modulo VMware.PowerCLI e dipendenze, firme verificate)
+e copia poi tutta la cartella del pacchetto sui server. Questi file non fanno parte del repository: vanno
+scaricati da fonte ufficiale (licenze Microsoft e VMware/Broadcom).

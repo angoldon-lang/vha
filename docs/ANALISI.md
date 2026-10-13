@@ -32,6 +32,8 @@ compilato ma mai eseguito contro sistemi reali.
 | Riattivazione del task con `Definition + RegisterChanges` avrebbe azzerato la password memorizzata | `Task.Enabled` | — |
 
 ## C. Aperti / fuori ambito (da decidere)
+Verifica eseguita e rischi residui: `VERIFICA.md`; installazione: `INSTALLAZIONE.md`.
+
 * **Collaudo reale** (vCenter, SQL, Windows, cluster): obbligatorio, elenco in `INSTALLAZIONE.md`.
 * **Schema `Jelena`**: ricostruito dal codice (`sql/01_schema.sql`); confrontarlo con un database funzionante.
 * **Oggetti server** (login con stesso SID, job, linked server, certificati TDE): non gestiti dal prodotto. Consigliato dbatools (`Copy-DbaLogin`, `Sync-DbaAvailabilityGroup`-like) e un controllo di drift schedulato.

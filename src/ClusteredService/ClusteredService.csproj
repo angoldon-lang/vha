@@ -12,7 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Vha.Infrastructure\Vha.Infrastructure.csproj" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.PowerShell.5.ReferenceAssemblies" Version="1.1.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.PowerShell.5.ReferenceAssemblies" Version="1.1.0" PrivateAssets="all" IncludeAssets="compile" />
     <Reference Include="System.ServiceProcess" />
     <Reference Include="System.Configuration.Install" />
     <Reference Include="System.Management" />

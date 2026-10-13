@@ -1,0 +1,24 @@
+vHA 3.0 - pacchetto di installazione
+====================================
+
+Contenuto
+  setup\VhaSetup.exe     configuratore e installatore (wizard, piano, installazione, cluster, verifica)
+  bin\                   ClusteredService.exe e CsuCmd.exe
+  sql\                   script del database Jelena
+  prereq\                prerequisiti: .NET Framework 4.8 e modulo VMware.PowerCLI (vedi prereq\LEGGIMI.txt)
+  examples\              esempio di file di configurazione
+  docs\                  documentazione
+  SHA256SUMS.txt         impronte dei file: verifica la copia sui server con
+                         Get-FileHash -Algorithm SHA256 <file>
+
+Procedura (dettagli in docs\INSTALLAZIONE.md)
+  1. Copia questa cartella su ogni nodo (percorso locale, es. C:\vHA\Setup).
+  2. Su UN nodo:  Setup.cmd  ->  1  (wizard)  oppure modifica examples\vha-deployment.example.json
+                  e salvalo come vha-deployment.json. Copia lo stesso file su tutti i nodi.
+  3. Su OGNI nodo (come amministratore): Setup.cmd -> 2 (piano) -> 3 (installa).
+     Se il setup chiede il riavvio, riavvia e ripeti: i passi gia' fatti non vengono rifatti.
+  4. Sul primo nodo e su ogni nodo proprietario iniziale di un AG: Setup.cmd -> 4 (cluster).
+  5. Setup.cmd -> 5 (verifica) e le prove del capitolo "Collaudo" di docs\INSTALLAZIONE.md.
+
+Nessuna password e' scritta nei file: vengono chieste (o lette da VHA_SERVICE_PASSWORD,
+VHA_TASK_PASSWORD, VHA_VCENTER_PASSWORD) solo se servono, e quella di vCenter e' cifrata con DPAPI.

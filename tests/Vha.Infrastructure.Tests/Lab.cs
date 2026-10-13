@@ -65,11 +65,10 @@ namespace Vha.Infrastructure.Tests
         /// <summary>Runs a script file the way sqlcmd would: $(Var) substitution and GO batch separators.</summary>
         public static void RunScript(string conn, string file, IDictionary<string, string> vars = null)
         {
-            var text = Sql(file);
-            if (vars != null) foreach (var kv in vars) text = text.Replace("$(" + kv.Key + ")", kv.Value);
-            foreach (var batch in Regex.Split(text, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase))
+            // the same substitution engine the setup uses (values are escaped for string literals)
+            var text = Vha.Core.Setup.SqlScriptTemplate.Apply(Sql(file), vars ?? new Dictionary<string, string>());
+            foreach (var batch in Vha.Core.Setup.SqlScriptTemplate.Batches(text))
             {
-                if (string.IsNullOrWhiteSpace(batch)) continue;
                 using (var c = new SqlConnection(conn)) { c.Open(); using (var cmd = c.CreateCommand()) { cmd.CommandText = batch; cmd.CommandTimeout = 120; cmd.ExecuteNonQuery(); } }
             }
         }
@@ -86,7 +85,7 @@ namespace Vha.Infrastructure.Tests
         }
 
         /// <summary>Empty both instances, recreate Jelena with the real schema script and register AG01 on both nodes.</summary>
-        public static void Reset(bool registerAg = true)
+        public static void Reset(bool registerAg = true, bool dropJelena = false)
         {
             foreach (var conn in new[] { ConnA(), ConnB() })
             {
@@ -96,15 +95,17 @@ namespace Vha.Infrastructure.Tests
                     try { Exec(conn, "ALTER DATABASE " + q + " SET SINGLE_USER WITH ROLLBACK IMMEDIATE"); } catch (SqlException) { /* offline / missing files */ }
                     Exec(conn, "DROP DATABASE " + q);
                 }
-                Exec(conn, "CREATE DATABASE Jelena");
+                if (!dropJelena) Exec(conn, "CREATE DATABASE Jelena");
             }
             foreach (var d in Directory.GetDirectories(Shared)) { try { Directory.Delete(d, true); } catch (Exception) { } }
+            if (dropJelena) return;
             RunScript(ConnA("Jelena"), "01_schema.sql");
             RunScript(ConnB("Jelena"), "01_schema.sql");
             if (!registerAg) return;
             var nodes = "VM1|vm1.local|localhost,14331;VM2|vm2.local|localhost,14332";
-            RunScript(ConnA("Jelena"), "02_register_availability_group.sql", new Dictionary<string, string> { { "AgName", "AG01" }, { "VmName", "VM1" }, { "NodeList", nodes }, { "Owner", "VM1" }, { "CpuMHz", "0" }, { "MemMB", "0" } });
-            RunScript(ConnB("Jelena"), "02_register_availability_group.sql", new Dictionary<string, string> { { "AgName", "AG01" }, { "VmName", "VM2" }, { "NodeList", nodes }, { "Owner", "VM1" }, { "CpuMHz", "0" }, { "MemMB", "0" } });
+            const string Cs = "Connection Timeout=16;MultipleActiveResultSets=True;Encrypt=True;TrustServerCertificate=True";
+            RunScript(ConnA("Jelena"), "02_register_availability_group.sql", new Dictionary<string, string> { { "AgName", "AG01" }, { "VmName", "VM1" }, { "NodeList", nodes }, { "Owner", "VM1" }, { "CpuMHz", "0" }, { "MemMB", "0" }, { "CsOptions", Cs } });
+            RunScript(ConnB("Jelena"), "02_register_availability_group.sql", new Dictionary<string, string> { { "AgName", "AG01" }, { "VmName", "VM2" }, { "NodeList", nodes }, { "Owner", "VM1" }, { "CpuMHz", "0" }, { "MemMB", "0" }, { "CsOptions", Cs } });
             // the generated connection strings use integrated security; the lab uses SQL authentication
             Exec(ConnA("Jelena"), "UPDATE dbo.JNodes SET ConnectionString = CASE VMName WHEN 'VM1' THEN @a ELSE @b END", ("@a", ConnA("Jelena")), ("@b", ConnB("Jelena")));
             Exec(ConnB("Jelena"), "UPDATE dbo.JNodes SET ConnectionString = CASE VMName WHEN 'VM1' THEN @a ELSE @b END", ("@a", ConnA("Jelena")), ("@b", ConnB("Jelena")));

@@ -1,0 +1,48 @@
+{
+  // vHA deployment file. Create it with "VhaSetup wizard" or edit this example. No password is stored here.
+  "schemaVersion": 1,
+  "installDirectory": "C:\\vHA\\Bin",
+  "vCenter": {
+    "server": "vc01.corp.local",
+    "user": "CORP\\svcvha",               // empty = the service account authenticates (pass-through)
+    "allowUntrustedCertificate": false
+  },
+  "serviceAccount": "CORP\\svcVhaSvc$",   // gMSA recommended (name ends with $)
+  "taskAccount": "CORP\\svcVhaTask$",
+  "cluster": {
+    "name": "VHACL01",
+    "ipAddress": "10.0.0.50",
+    "witness": "FileShare",                // FileShare | None (None only with an odd number of nodes)
+    "witnessPath": "\\\\fs01\\witness\\vhacl01",
+    "failoverThreshold": 0,                // 0 = Windows defaults
+    "failoverPeriodHours": 0
+  },
+  "nodes": [
+    { "vmName": "SQLVM01", "dnsName": "sqlvm01.corp.local" },
+    { "vmName": "SQLVM02", "dnsName": "sqlvm02.corp.local" }
+  ],
+  "availabilityGroups": [
+    {
+      "name": "isql2025a-AG01",
+      "instanceName": "ISQL2025A",
+      "sqlPort": 0,
+      "mountRoot": "M:\\isql2025a-AG01",    // folders Data and Log (mount points of the data and log disks) below it
+      "diskNameFilter": "*isql2025a-AG01*", // wildcard on the VMDK file names of this AG
+      "initialOwner": "SQLVM01",            // VM that holds the disks now
+      "listenerName": "ISQL25A01",
+      "listenerIp": "10.0.0.51",
+      "reservationEnabled": false,
+      "reservationCpuMHz": 0,
+      "reservationMemMB": 0,
+      "ownerUnreachablePolicy": "Force",    // Force | Abort
+      "csuWaitSeconds": 120,
+      "failoverTimeoutSeconds": 900,
+      "sqlOptions": "Encrypt=True;TrustServerCertificate=True",
+      "csuLogLevel": 2,
+      "csuIntervalSeconds": 60,
+      "createDummyDatabase": true,
+      "dummyDatabaseName": "Dummy01",
+      "taskName": ""
+    }
+  ]
+}

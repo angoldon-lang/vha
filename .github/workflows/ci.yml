@@ -12,10 +12,14 @@ jobs:
           dotnet-version: 8.0.x
       - name: Build everything (net48 targets build on Linux through reference assemblies)
         run: dotnet build vha.sln --configuration Release
-      - name: Unit tests
+      - name: Unit tests (logic, fault injection)
         run: dotnet test tests/Vha.Core.Tests --configuration Release --no-build --logger "trx;LogFileName=results.trx"
+      - name: Start the SQL Server 2025 lab (two instances)
+        run: tests/integration/start-lab.sh
+      - name: Integration tests (real SQL Server 2025, real PowerShell engine)
+        run: dotnet test tests/Vha.Infrastructure.Tests --configuration Release --logger "trx;LogFileName=results-infra.trx"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
-          path: tests/Vha.Core.Tests/TestResults/*.trx
+          path: tests/**/TestResults/*.trx

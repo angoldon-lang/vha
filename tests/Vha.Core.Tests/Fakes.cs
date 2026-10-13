@@ -44,6 +44,10 @@ namespace Vha.Core.Tests
         public Func<string, DiskChange, bool> FailReconfigure = (vm, c) => false;
         public List<DiskChange> Changes = new List<DiskChange>();
         public bool SilentlyIgnoreAdd;
+        /// <summary>Attempts to attach a disk that another VM still holds (vSphere refuses these with a lock error).</summary>
+        public int LockViolations;
+        /// <summary>Test hook: an Add attaches only the first disk and then reports an error (a partial result).</summary>
+        public bool PartialAdd;
 
         public FakeVCenter(Journal j) { _j = j; }
 
@@ -72,7 +76,19 @@ namespace Vha.Core.Tests
             if (change.Action == DiskAction.Remove)
                 Disks[vm.Name].RemoveAll(d => change.Disks.Any(c => c.DeviceKey == d.DeviceKey));
             else if (!SilentlyIgnoreAdd)
+            {
+                foreach (var c in change.Disks)
+                {
+                    var holder = Disks.FirstOrDefault(kv => kv.Key != vm.Name && kv.Value.Any(d => d.DeviceKey == c.DeviceKey && d.FileName == c.FileName));
+                    if (holder.Key != null) { LockViolations++; throw new InvalidOperationException("vSphere: file " + c.FileName + " is locked by " + holder.Key); }
+                }
+                if (PartialAdd && change.Disks.Count > 1)
+                {
+                    Attach(vm.Name, change.Disks[0].DeviceKey, change.Disks[0].FileName);
+                    throw new InvalidOperationException("vCenter: connection lost after the first device");
+                }
                 foreach (var c in change.Disks) Attach(vm.Name, c.DeviceKey, c.FileName);
+            }
             if (change.CpuReservationMhz.HasValue) vm.CpuReservationMhz = change.CpuReservationMhz.Value;
             if (change.MemReservationMB.HasValue) vm.MemReservationMB = change.MemReservationMB.Value;
         }

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Integration tests of the real infrastructure code (the same source files that are compiled for net48 in
+    Vha.Infrastructure) against:
+      * real SQL Server instances (two containers, "node A" and "node B"), and
+      * a real PowerShell engine (Microsoft.PowerShell.SDK) with simulated VMware/Storage cmdlets.
+    They are skipped automatically when the SQL Server instances are not reachable (see tests/integration/README.md).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <IsPackable>false</IsPackable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.4" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.6" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Vha.Core\Vha.Core.csproj" />
+    <ProjectReference Include="..\Vha.Core.Tests\Vha.Core.Tests.csproj" />
+    <Compile Include="..\..\src\Vha.Infrastructure\PowerShell\*.cs" Link="Infra\PowerShell\%(Filename)%(Extension)" />
+    <Compile Include="..\..\src\Vha.Infrastructure\Sql\*.cs" Link="Infra\Sql\%(Filename)%(Extension)" />
+    <Compile Include="..\..\src\Vha.Infrastructure\Csu\*.cs" Link="Infra\Csu\%(Filename)%(Extension)" />
+    <Compile Include="..\..\src\Vha.Infrastructure\Windows\FileAcl.cs" Link="Infra\Windows\FileAcl.cs" />
+    <Compile Include="..\..\src\Vha.Infrastructure\Windows\SecretProtector.cs" Link="Infra\Windows\SecretProtector.cs" />
+  </ItemGroup>
+</Project>

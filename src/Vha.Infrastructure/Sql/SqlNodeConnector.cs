@@ -15,8 +15,29 @@ namespace Vha.Infrastructure.Sql
         private readonly ILog _log;
         public SqlNodeConnector(ILog log) { _log = log; }
 
-        // network level errors: the instance (or the machine) is not there
-        private static readonly HashSet<int> Unavailable = new HashSet<int> { -1, 2, 53, 40, 233, 10053, 10054, 10060, 10061, 11001, 64 };
+        // Errors that mean "I reached the instance but I am not allowed in / the configuration is wrong".
+        // They must abort the failover: they say nothing about the node being down.
+        private static readonly HashSet<int> ConfigurationErrors = new HashSet<int>
+        { 18452, 18456, 18461, 18462, 18463, 18464, 18465, 18466, 18467, 18468, 18470, 18471, 18486, 18487, 18488, 4060, 4064, 916, 40615 };
+
+        /// <summary>
+        /// Decides what a failed Open() means. Returns null for configuration/authentication problems (the caller rethrows).
+        /// Everything else raised while connecting (refused, unresolved, unreachable, timed out) is "the node does not answer":
+        /// the number alone is not reliable (.NET Framework reports -1/53/258, .NET Core reports 0).
+        /// A TLS/certificate failure is also a configuration problem, not a dead node.
+        /// </summary>
+        internal static ConnectStatus? Classify(SqlException ex)
+        {
+            foreach (SqlError e in ex.Errors)
+                if (ConfigurationErrors.Contains(e.Number)) return null;
+            var m = ex.Message ?? "";
+            if (m.IndexOf("certificate", StringComparison.OrdinalIgnoreCase) >= 0 || m.IndexOf("pre-login handshake", StringComparison.OrdinalIgnoreCase) >= 0
+                || m.IndexOf("SSL Provider", StringComparison.OrdinalIgnoreCase) >= 0)
+                return null;
+            if (ex.Number == -2 || ex.Number == 258 || m.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0 || m.IndexOf("timed out", StringComparison.OrdinalIgnoreCase) >= 0)
+                return ConnectStatus.Timeout;
+            return ConnectStatus.NotAvailable;
+        }
 
         public NodeConnection Connect(NodeInfo node)
         {
@@ -27,15 +48,13 @@ namespace Vha.Infrastructure.Sql
                 _log.Info("Connected to " + c.DataSource);
                 return new NodeConnection(ConnectStatus.Connected, new SqlNode(c, _log));
             }
-            catch (SqlException ex) when (ex.Number == -2 || ex.Number == 258)
+            catch (SqlException ex)
             {
-                return new NodeConnection(ConnectStatus.Timeout, null, ex.Message);
+                var status = Classify(ex);
+                if (status == null) throw;   // login failed, database not accessible, TLS... a configuration problem: abort
+                _log.Warn("SQL Server on " + node.VmName + " does not answer (" + status + "): " + ex.Message);
+                return new NodeConnection(status.Value, null, "SQL error " + ex.Number + ": " + ex.Message);
             }
-            catch (SqlException ex) when (Unavailable.Contains(ex.Number))
-            {
-                return new NodeConnection(ConnectStatus.NotAvailable, null, "SQL error " + ex.Number + ": " + ex.Message);
-            }
-            // anything else (login failed, wrong connection string...) is a configuration problem and aborts the failover
         }
 
         private sealed class SqlNode : ISqlNode

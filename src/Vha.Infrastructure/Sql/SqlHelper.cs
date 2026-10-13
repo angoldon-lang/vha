@@ -14,9 +14,26 @@ namespace Vha.Infrastructure.Sql
             catch { c.Dispose(); throw; }
         }
 
+        /// <summary>
+        /// "Instance" in Jelena.ini is normally a server\instance name (integrated security). When it contains '=' it is taken as
+        /// a complete connection string (custom port, listener, MultiSubnetFailover, SQL authentication in test labs...).
+        /// </summary>
         public static string LocalConnectionString(string instance, string options, int timeoutSeconds = 15)
         {
-            var cs = "Server=" + instance + ";Database=Jelena;Trusted_Connection=Yes;Connection Timeout=" + timeoutSeconds + ";Application Name=Jelena";
+            if (string.IsNullOrWhiteSpace(instance)) throw new ArgumentException("Instance is empty", nameof(instance));
+            string cs;
+            if (instance.IndexOf('=') >= 0)
+            {
+                cs = instance.Trim().TrimEnd(';');
+                var lower = cs.ToLowerInvariant();
+                if (!lower.Contains("database=") && !lower.Contains("initial catalog=")) cs += ";Database=Jelena";
+                if (!lower.Contains("connection timeout=") && !lower.Contains("connect timeout=")) cs += ";Connection Timeout=" + timeoutSeconds;
+                if (!lower.Contains("application name=")) cs += ";Application Name=Jelena";
+            }
+            else
+            {
+                cs = "Server=" + instance + ";Database=Jelena;Trusted_Connection=Yes;Connection Timeout=" + timeoutSeconds + ";Application Name=Jelena";
+            }
             return string.IsNullOrEmpty(options) ? cs : cs + ";" + options;
         }
 

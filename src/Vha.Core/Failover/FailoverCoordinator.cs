@@ -150,11 +150,13 @@ namespace Vha.Core.Failover
                 detached.Add(new KeyValuePair<string, List<ConfiguredDisk>>(group.Key, toRemove));
             }
 
-            // 7. attach to this node (rollback on failure)
+            // 7. attach to this node. Whatever the answer of vCenter is, the REAL state decides: a timeout can hide a successful
+            //    attach (do not roll back a disk that is already here) and an unreadable state must never trigger a rollback.
             var toAdd = disks.Where(d => onSelf.All(h => h.Disk.DeviceKey != d.DeviceKey))
                              .Select(d => { var h = onOthers.FirstOrDefault(x => x.Disk.DeviceKey == d.DeviceKey); return h == null ? d : WithActualFile(d, h.Actual); })
                              .ToList();
             var me = _vc.GetVm(self);
+            Exception addError = null;
             try
             {
                 _log.Info("Attaching " + toAdd.Count + " disk(s) to " + me.Name);
@@ -165,20 +167,30 @@ namespace Vha.Core.Failover
                     CpuReservationMhz = _s.ReservationEnabled ? me.CpuReservationMhz + ag.ResCpuMHz : (int?)null,
                     MemReservationMB = _s.ReservationEnabled ? me.MemReservationMB + ag.ResMemMB : (int?)null
                 });
-                VerifyAttached(self, disks);
             }
             catch (Exception ex)
             {
-                _log.Error("Attach failed: " + ex.Message);
-                RollbackToHolders(detached, ag);
-                throw new FailoverException("Attach of the disks to " + self + " failed; the disks were returned to their previous holder when possible: " + ex.Message, ex);
+                addError = ex;
+                _log.Error("Attach reported an error: " + ex.Message);
             }
 
+            var now = ReadDisksWithRetry(self);
+            if (now == null)
+                throw new FailoverException("Cannot read the disks of " + self + " after the attach (" + (addError?.Message ?? "no error reported") + "); nothing was rolled back. The next start of the service reconciles from the real state.", addError);
+            var missing = disks.Where(d => now.All(v => v.DeviceKey != d.DeviceKey)).ToList();
+            if (missing.Count > 0)
+            {
+                _log.Error("After the attach the devices " + string.Join(",", missing.Select(m => m.DeviceKey)) + " are not attached to " + self);
+                RollbackToHolders(detached, missing, ag);
+                throw new FailoverException("Attach of the disks to " + self + " failed; the missing disks were returned to their previous holder when possible: "
+                    + (addError?.Message ?? "vCenter reported success but the devices are not attached"), addError);
+            }
+            if (addError != null) _log.Warn("vCenter reported an error but every disk is attached to " + self + ": continuing");
+
             // 8. persist the new reality (errors are fatal now)
-            var attachedNow = _vc.GetDisks(self);
             foreach (var d in disks)
             {
-                var actual = attachedNow.First(v => v.DeviceKey == d.DeviceKey);
+                var actual = now.First(v => v.DeviceKey == d.DeviceKey);
                 _store.UpdateDisk(ag.Id, d, actual.FileName, true);
             }
             PublishOwner(ag, self);
@@ -198,24 +210,33 @@ namespace Vha.Core.Failover
             _log.Info("Owner set to " + owner + ", new SCN " + next);
         }
 
-        private void VerifyAttached(string vmName, IEnumerable<ConfiguredDisk> disks)
+        private IReadOnlyList<VmDisk> ReadDisksWithRetry(string vmName)
         {
-            var now = _vc.GetDisks(vmName);
-            var missing = disks.Where(d => now.All(v => v.DeviceKey != d.DeviceKey)).Select(d => d.DeviceKey).ToList();
-            if (missing.Count > 0) throw new FailoverException("After the reconfiguration the devices " + string.Join(",", missing) + " are not attached to " + vmName);
+            for (int attempt = 1; attempt <= 3; attempt++)
+            {
+                try { return _vc.GetDisks(vmName); }
+                catch (Exception ex)
+                {
+                    _log.Warn("Reading the disks of " + vmName + " failed (attempt " + attempt + "/3): " + ex.Message);
+                    if (attempt < 3) _clock.Sleep(TimeSpan.FromSeconds(attempt));
+                }
+            }
+            return null;
         }
 
-        private void RollbackToHolders(List<KeyValuePair<string, List<ConfiguredDisk>>> detached, AgInfo ag)
+        private void RollbackToHolders(List<KeyValuePair<string, List<ConfiguredDisk>>> detached, IReadOnlyList<ConfiguredDisk> missing, AgInfo ag)
         {
             foreach (var kv in detached)
             {
+                var toRestore = kv.Value.Where(d => missing.Any(m => m.DeviceKey == d.DeviceKey)).ToList();
+                if (toRestore.Count == 0) continue;
                 try
                 {
                     var vm = _vc.GetVm(kv.Key);
                     _vc.Reconfigure(vm, new DiskChange
                     {
                         Action = DiskAction.Add,
-                        Disks = kv.Value,
+                        Disks = toRestore,
                         CpuReservationMhz = _s.ReservationEnabled ? vm.CpuReservationMhz + ag.ResCpuMHz : (int?)null,
                         MemReservationMB = _s.ReservationEnabled ? vm.MemReservationMB + ag.ResMemMB : (int?)null
                     });

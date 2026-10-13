@@ -174,6 +174,42 @@ namespace Vha.Core.Tests
         }
 
         [Fact]
+        public void A_partial_attach_rolls_back_only_the_disks_that_are_not_here_and_never_touches_the_attached_one()
+        {
+            var f = new Fx();
+            f.VC.PartialAdd = true;
+            var ex = Assert.Throws<FailoverException>(() => f.Build().Run());
+            Assert.Contains("connection lost", ex.Message);
+            Assert.Equal(0, f.VC.LockViolations);                                   // did not try to re-attach 2016 to VM1 while it is on VM2
+            Assert.Equal(new[] { "2017" }, f.VC.Disks["VM1"].Select(d => d.DeviceKey).ToArray());   // only the missing disk went back
+            Assert.Equal(new[] { "2016" }, f.VC.Disks["VM2"].Select(d => d.DeviceKey).ToArray());
+        }
+
+        [Fact]
+        public void An_unreadable_state_after_the_attach_does_not_trigger_a_rollback()
+        {
+            var f = new Fx();
+            int reads = 0;
+            var vc = new FlakyReadVc(f.VC, () => ++reads > 3);   // reads fail once the attach has been issued (the last 3 attempts)
+            var coordinator = new FailoverCoordinator(f.Settings, f.Store, vc, f.Conn, f.Guest, f.Local, f.Csu, f.Clock, f.Log);
+            vc.FailAfterAdd = true;
+            var ex = Assert.Throws<FailoverException>(() => coordinator.Run());
+            Assert.Contains("nothing was rolled back", ex.Message);
+            Assert.Equal(2, f.VC.Disks["VM2"].Count);                               // the attach stays: the next start reconciles
+            Assert.Equal(0, f.VC.LockViolations);
+        }
+
+        private sealed class FlakyReadVc : IVCenter
+        {
+            private readonly FakeVCenter _i; public bool FailAfterAdd; private bool _added;
+            public FlakyReadVc(FakeVCenter i, Func<bool> unused) { _i = i; }
+            public VmInfo GetVm(string n) => _i.GetVm(n);
+            public IReadOnlyList<VmDisk> GetDisks(string n) { if (FailAfterAdd && _added) throw new InvalidOperationException("vCenter read timeout"); return _i.GetDisks(n); }
+            public bool DatastoreFileExists(string f) => _i.DatastoreFileExists(f);
+            public void Reconfigure(VmInfo vm, DiskChange c) { _i.Reconfigure(vm, c); if (c.Action == DiskAction.Add) _added = true; }
+        }
+
+        [Fact]
         public void Scn_write_failure_is_no_longer_swallowed()
         {
             var f = new Fx();

@@ -54,6 +54,8 @@ namespace Vha.Core.Failover
     {
         void SetOffline(NodeInfo node, IReadOnlyList<ConfiguredDisk> disks);
         void SetOnlineLocal(IReadOnlyList<ConfiguredDisk> disks);
+        /// <summary>Configured disks that Windows on THIS machine does not see (by serial / unique id). Used when vCenter is unavailable.</summary>
+        IReadOnlyList<ConfiguredDisk> MissingLocally(IReadOnlyList<ConfiguredDisk> disks);
     }
 
     /// <summary>Local instance: makes the databases available once the disks are in place.</summary>
@@ -95,12 +97,30 @@ namespace Vha.Core.Failover
         public NodeUnresponsiveException(string message, Exception inner = null) : base(message, inner) { }
     }
 
-    public enum FailoverOutcome { AlreadyOwner, Completed, FailbackRequired }
+    public enum FailoverOutcome { AlreadyOwner, Completed, FailbackRequired, StartedWithoutVCenter }
 
     public sealed class FailoverResult
     {
         public FailoverOutcome Outcome { get; set; }
         /// <summary>Node that must get the cluster group back (VM with snapshots holds the disks).</summary>
         public NodeInfo FailbackNode { get; set; }
+    }
+
+    /// <summary>Raised by <see cref="UnavailableVCenter"/>: vCenter could not be reached.</summary>
+    public sealed class VCenterUnavailableException : Exception
+    {
+        public VCenterUnavailableException(string message, Exception inner) : base(message, inner) { }
+    }
+
+    /// <summary>Stands in for vCenter when the connection failed: every call throws, so the coordinator falls back to local evidence (if enabled) before changing anything.</summary>
+    public sealed class UnavailableVCenter : IVCenter
+    {
+        private readonly Exception _cause;
+        public UnavailableVCenter(Exception cause) { _cause = cause; }
+        private Exception Err() => new VCenterUnavailableException("vCenter is not available: " + (_cause?.Message ?? "unknown"), _cause);
+        public VmInfo GetVm(string name) { throw Err(); }
+        public IReadOnlyList<VmDisk> GetDisks(string vmName) { throw Err(); }
+        public bool DatastoreFileExists(string fileName) { throw Err(); }
+        public void Reconfigure(VmInfo vm, DiskChange change) { throw Err(); }
     }
 }

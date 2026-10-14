@@ -22,10 +22,19 @@ namespace ClusteredService
                 var ag = cfg.GetAg(settings.AgName) ?? throw new InvalidOperationException("Availability group '" + settings.AgName + "' is not defined in dbo.JAGroups");
                 var setting = cfg.GetSetting("ConnectVCenter");
                 if (string.IsNullOrWhiteSpace(setting)) throw new InvalidOperationException("JSettings 'ConnectVCenter' is not defined");
-                Vha.Core.Util.Retry.Run(() => { vc.Connect(setting); return 0; }, 3, TimeSpan.FromSeconds(10), ex => ex is PowerShellException,
-                    (n, ex) => log.Warn("vCenter connection failed (attempt " + n + "/3): " + ex.Message));
+                IVCenter vcenter = vc;
+                try
+                {
+                    Vha.Core.Util.Retry.Run(() => { vc.Connect(setting); return 0; }, 3, TimeSpan.FromSeconds(10), ex => ex is PowerShellException,
+                        (n, ex) => log.Warn("vCenter connection failed (attempt " + n + "/3): " + ex.Message));
+                }
+                catch (PowerShellException ex) when (settings.LocalStartWithoutVCenter)
+                {
+                    log.Error("vCenter is not reachable: " + ex.Message);
+                    vcenter = new UnavailableVCenter(ex);
+                }
 
-                var coordinator = new FailoverCoordinator(settings, cfg, vc, new SqlNodeConnector(log, (int)settings.ReleaseTimeout.TotalSeconds), new GuestDisks(ps, log),
+                var coordinator = new FailoverCoordinator(settings, cfg, vcenter, new SqlNodeConnector(log, (int)settings.ReleaseTimeout.TotalSeconds), new GuestDisks(ps, log),
                     new LocalSql(settings.Instance, settings.SqlOptions, ag.Id, cfg, log), new TaskSchedulerCsuTask(settings.TaskName), new SystemClock(), log);
                 return coordinator.Run();
             }

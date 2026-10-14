@@ -88,6 +88,7 @@ namespace Vha.Core.Tests
             public FaultyGuest(Plan p, IGuestDisks i) { _p = p; _i = i; }
             public void SetOffline(NodeInfo n, IReadOnlyList<ConfiguredDisk> d) => _p.Around("guest.Offline", () => _i.SetOffline(n, d));
             public void SetOnlineLocal(IReadOnlyList<ConfiguredDisk> d) => _p.Around("guest.Online", () => _i.SetOnlineLocal(d));
+            public IReadOnlyList<ConfiguredDisk> MissingLocally(IReadOnlyList<ConfiguredDisk> d) => _i.MissingLocally(d);
         }
 
         private sealed class FaultyLocal : ILocalSql
@@ -117,7 +118,7 @@ namespace Vha.Core.Tests
 
             public World(Start start)
             {
-                VC = new FakeVCenter(J); Store = new FakeStore(J); Conn = new FakeConnector(J); Guest = new FakeGuest(J); Local = new FakeLocalSql(J); Csu = new FakeCsuTask(J);
+                VC = new FakeVCenter(J); Store = new FakeStore(J); Conn = new FakeConnector(J); Guest = new FakeGuest(J) { Probe = d => d.Where(x => !VC.Disks["VM2"].Any(v => v.Uuid == x.UniqueId)).ToList() }; Local = new FakeLocalSql(J); Csu = new FakeCsuTask(J);
                 VC.AddVm("VM1", cpu: 4000, mem: 8192).AddVm("VM2", cpu: 1000, mem: 2048).AddVm("VM3");
                 Store.Nodes.Add(new NodeInfo { VmName = "VM1", DnsName = "vm1.local", ConnectionString = "x" });
                 Store.Nodes.Add(new NodeInfo { VmName = "VM2", DnsName = "vm2.local", ConnectionString = "y", IsLocal = true });

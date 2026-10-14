@@ -11,7 +11,7 @@ namespace VhaSetup
 {
     internal static class Program
     {
-        private const string Usage = @"vHA setup 3.0
+        private const string Usage = @"vHA setup
 
   VhaSetup wizard    [--config file]                       interactive configurator: writes the deployment file
   VhaSetup validate  --config file                         checks the deployment file
@@ -37,6 +37,7 @@ Exit codes: 0 ok, 1 a step failed, 2 invalid usage or configuration, 3 restart r
 
         private static int Run(string[] args)
         {
+            if (args.Length == 1 && (args[0] == "--version" || args[0] == "-v")) { Console.WriteLine(Vha.VersionInfo.Banner("vHA setup")); return 0; }
             if (args.Length == 0 || args[0] == "-h" || args[0] == "--help" || args[0] == "/?") { Console.WriteLine(Usage); return args.Length == 0 ? 2 : 0; }
             var cmd = args[0].ToLowerInvariant();
             var o = CliOptions.Parse(args.Skip(1).ToArray());

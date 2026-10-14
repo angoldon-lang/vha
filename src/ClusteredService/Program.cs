@@ -7,6 +7,7 @@ namespace ClusteredService
     {
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--version") { Console.WriteLine(Vha.VersionInfo.Banner("vHA ClusteredService")); return 0; }
             if (args.Length == 2 && args[0] == "--check") return Preflight.Run(args[1]);
             if (Environment.UserInteractive)
             {

@@ -16,6 +16,8 @@ namespace Vha.Core.Config
         public TimeSpan CsuWaitTimeout { get; private set; } = TimeSpan.FromSeconds(120);
         public TimeSpan FailoverTimeout { get; private set; } = TimeSpan.FromMinutes(15);
         public TimeSpan ReleaseTimeout { get; private set; } = TimeSpan.FromSeconds(300);
+        /// <summary>When vCenter is unreachable, start the databases locally if ALL the AG disks are already visible to this machine. Never moves disks.</summary>
+        public bool LocalStartWithoutVCenter { get; private set; } = true;
         public int LogRetentionDays { get; private set; } = 31;
         /// <summary>Extra connection string options for the local Jelena database, e.g. "Encrypt=True;TrustServerCertificate=True".</summary>
         public string SqlOptions { get; private set; } = "";
@@ -51,6 +53,13 @@ namespace Vha.Core.Config
                 if (!Enum.TryParse(pol, true, out OwnerUnreachablePolicy p) || !Enum.IsDefined(typeof(OwnerUnreachablePolicy), p))
                     throw new InvalidOperationException("OwnerUnreachablePolicy must be Force or Abort, found '" + pol + "'");
                 s.UnreachablePolicy = p;
+            }
+            var lsv = ini.Get("Failover", "LocalStartWithoutVCenter").Trim();
+            if (lsv.Length > 0)
+            {
+                if (lsv.Equals("Y", StringComparison.OrdinalIgnoreCase)) s.LocalStartWithoutVCenter = true;
+                else if (lsv.Equals("N", StringComparison.OrdinalIgnoreCase)) s.LocalStartWithoutVCenter = false;
+                else throw new InvalidOperationException("LocalStartWithoutVCenter must be Y or N, found '" + lsv + "'");
             }
             s.CsuWaitTimeout = Seconds(ini, "Failover", "CsuWaitSeconds", 120, 1, 3600);
             s.FailoverTimeout = Seconds(ini, "Failover", "FailoverTimeoutSeconds", 900, 30, 7200);

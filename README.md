@@ -1,12 +1,14 @@
-# vHA (Jelena) 3.0 – alta affidabilità dei database SQL Server su VMware
+# vHA (Jelena) – alta affidabilità dei database SQL Server su VMware
 
 Rifacimento controllato di vHA 2.0.0 (VB.NET, solo binari) in C#, con i difetti di affidabilità corretti e una suite di test automatici.
 Il meccanismo è quello originale: i dischi (VMDK) di dati e log di un availability group vengono staccati dalla VM che li usa e
 agganciati alla VM che diventa attiva; un servizio in cluster (WSFC) fa il lavoro, un task schedulato (CSU) tiene allineata la configurazione.
 
-> **Stato.** Compila e supera 512 test automatici, tra cui test d'integrazione contro **SQL Server 2025 reale** e **PowerShell reale**, iniezione di guasti sul failover, nodi congelati, crash, prova di durata (20 failover con scritture continue) e test a proprietà su migliaia di stringhe ostili.
+> **Stato.** Compila e supera oltre 550 test automatici, tra cui test d'integrazione contro **SQL Server 2025 reale** e **PowerShell reale**, iniezione di guasti sul failover, nodi congelati, crash, prova di durata (20 failover con scritture continue) e test a proprietà su migliaia di stringhe ostili.
 > **Non è mai stato eseguito su Windows, vCenter e cluster reali**: prima della produzione servono le prove del capitolo "Collaudo" in `docs/INSTALLAZIONE.md` (elenco dei rischi residui in `docs/VERIFICA.md`).
 > Il codice è stato ricostruito dalla decompilazione di `ClusteredService.exe`/`CsuCmd.exe` 2.0.0: vedi `docs/ANALISI.md` per cosa è cambiato e perché.
+
+**Versione:** numerazione a calendario `AAAA.MM.N` (vedi `CHANGELOG.md`, `docs/RELEASE.md`). **vCenter non disponibile:** vedi `docs/VCENTER.md`.
 
 ## Struttura
 | Percorso | Contenuto |
@@ -23,7 +25,7 @@ agganciati alla VM che diventa attiva; un servizio in cluster (WSFC) fa il lavor
 
 ## Installare (riassunto)
 ```
-pwsh -File installer\Build-Package.ps1 -IncludePrerequisites      # crea dist\VhaSetup-3.0.0.zip
+pwsh -File installer\Build-Package.ps1 -IncludePrerequisites      # crea dist\VhaSetup-<versione>.zip
 # sui nodi:  Setup.cmd -> 1 wizard -> 3 installa   (poi, a tutti i nodi installati: 4 cluster, 5 verifica)
 ```
 Dettagli: `docs/INSTALLAZIONE.md`. Cosa è provato e cosa no: `docs/VERIFICA.md`.

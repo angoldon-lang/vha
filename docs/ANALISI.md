@@ -1,11 +1,11 @@
-# Analisi di vHA 2.0.0 e correzioni della 3.0
+# Analisi di vHA 2.0.0 e correzioni (serie 3.0, ora versioni calendario)
 
 Fonte: `ClusteredService.exe`, `CsuCmd.exe`, `cSQL.dll`, `cVMware.dll` (decompilati), `Jelena.bak`, la guida di installazione e gli script SQL.
 Ogni riga indica la correzione e il test che la protegge (`tests/Vha.Core.Tests`). "Non verificabile qui" = codice nuovo di accesso a SQL/vCenter/Windows,
 compilato ma mai eseguito contro sistemi reali.
 
 ## A. Difetti critici (rischio di perdita dati o di mancato failover)
-| # | Difetto in 2.0.0 | Correzione 3.0 | Test |
+| # | Difetto in 2.0.0 | Correzione | Test |
 |---|---|---|---|
 | 1 | `CheckRecoveryPendingDB` (CSU, ogni minuto, su ogni nodo) eseguiva `DROP DATABASE` su **qualunque** DB OFFLINE/RECOVERY_PENDING con **almeno un** file mancante. Perso solo l'`.ldf`, il DROP cancellava l'`.mdf` | `GhostDropPolicy`: solo DB gestiti dall'AG, stato OFFLINE/RECOVERY_PENDING, **tutti** i file assenti e nodo che **non** possiede i dischi. Mai se un file sopravvive; mai DB di sistema/Jelena/altri | `GhostDropPolicyTests`, `CsuCoordinatorTests.The_owner_never_drops…`, `…just_detected_the_disks…` |
 | 2 | `IsTaskRunning(…, bool bolIsRunning, …)` per valore: l'attesa del CSU non funzionava mai, failover e CSU in concorrenza | `ICsuTask`: attesa reale, stop dopo `CsuWaitSeconds`, riabilitazione sempre (anche se il failover fallisce); in più mutex per AG nel CSU | `Running_csu_task_is_waited_for`, `Stuck_csu_task…`, `Csu_task_is_re_enabled_even_when…` |

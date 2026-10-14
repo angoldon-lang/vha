@@ -1,4 +1,4 @@
-# Installazione di vHA 3.0 con il setup guidato
+# Installazione di vHA con il setup guidato
 
 Il setup sostituisce le ~57 pagine della guida 2.0.0: un file di configurazione (`vha-deployment.json`) descrive tutto, `VhaSetup.exe` lo valida,
 mostra il piano e lo esegue su ogni nodo. Ogni passo è idempotente: se qualcosa si ferma (errore, riavvio richiesto) si corregge e si **ripete lo stesso comando**.
@@ -23,7 +23,7 @@ Il setup installa da solo: Failover Clustering, PowerShell remoting, .NET Framew
 
 ## 1. Ottenere il pacchetto
 ```
-pwsh -File installer\Build-Package.ps1 -IncludePrerequisites     # su un PC con Internet; produce dist\VhaSetup-3.0.0.zip
+pwsh -File installer\Build-Package.ps1 -IncludePrerequisites     # su un PC con Internet; produce dist\VhaSetup-<versione>.zip
 ```
 Senza `-IncludePrerequisites` il pacchetto scarica PowerCLI da Internet sui server; con l'opzione include .NET 4.8 e PowerCLI (firme verificate)
 per server isolati. La build esegue prima i test unitari e controlla la completezza del pacchetto. `SHA256SUMS.txt` permette di verificare la copia.

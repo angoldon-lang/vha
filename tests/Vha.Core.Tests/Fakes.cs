@@ -49,6 +49,10 @@ namespace Vha.Core.Tests
         /// <summary>Test hook: an Add attaches only the first disk and then reports an error (a partial result).</summary>
         public bool PartialAdd;
 
+        /// <summary>Simulates a vCenter outage: every call fails.</summary>
+        public bool Down;
+        private void CheckUp() { if (Down) throw new InvalidOperationException("vCenter unreachable"); }
+
         public FakeVCenter(Journal j) { _j = j; }
 
         public FakeVCenter AddVm(string name, string power = "PoweredOn", int snaps = 0, int cpu = 0, int mem = 0)
@@ -64,8 +68,8 @@ namespace Vha.Core.Tests
             return this;
         }
 
-        public VmInfo GetVm(string name) { if (!Vms.ContainsKey(name)) throw new InvalidOperationException("VM not found " + name); return Vms[name]; }
-        public IReadOnlyList<VmDisk> GetDisks(string vmName) => Disks[vmName].ToList();
+        public VmInfo GetVm(string name) { CheckUp(); if (!Vms.ContainsKey(name)) throw new InvalidOperationException("VM not found " + name); return Vms[name]; }
+        public IReadOnlyList<VmDisk> GetDisks(string vmName) { CheckUp(); return Disks[vmName].ToList(); }
         public bool DatastoreFileExists(string fileName) => DatastoreFiles.Contains(fileName);
 
         public void Reconfigure(VmInfo vm, DiskChange change)
@@ -153,6 +157,18 @@ namespace Vha.Core.Tests
         public FakeGuest(Journal j) { _j = j; }
         public void SetOffline(NodeInfo node, IReadOnlyList<ConfiguredDisk> disks) { if (OfflineThrows) throw new InvalidOperationException("WinRM: the client cannot connect"); _j.Add("guest-offline:" + node.VmName); }
         public void SetOnlineLocal(IReadOnlyList<ConfiguredDisk> disks) => _j.Add("guest-online");
+        /// <summary>Unique ids Windows does not see on this machine.</summary>
+        public HashSet<string> LocalMissing = new HashSet<string>();
+        public bool ProbeThrows;
+        /// <summary>Overrides the probe (e.g. derive it from the fake vCenter state).</summary>
+        public Func<IReadOnlyList<ConfiguredDisk>, IReadOnlyList<ConfiguredDisk>> Probe;
+        public IReadOnlyList<ConfiguredDisk> MissingLocally(IReadOnlyList<ConfiguredDisk> disks)
+        {
+            _j.Add("probe-local");
+            if (ProbeThrows) throw new InvalidOperationException("Get-Disk failed");
+            if (Probe != null) return Probe(disks);
+            return disks.Where(d => LocalMissing.Contains(d.UniqueId)).ToList();
+        }
     }
 
     public sealed class FakeLocalSql : ILocalSql

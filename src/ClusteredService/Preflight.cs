@@ -20,6 +20,7 @@ namespace ClusteredService
 
         public static int Run(string serviceName)
         {
+            Console.WriteLine(Vha.VersionInfo.Banner("vHA preflight"));
             ServiceSettings settings = null;
             Step("jelena.ini", () => { settings = ServiceSettings.FromIni(IniDocument.Load(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "jelena.ini")), serviceName); return settings.AgName + " on " + settings.VirtualMachineName; });
             if (settings == null) return 1;

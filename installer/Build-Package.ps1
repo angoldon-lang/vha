@@ -12,13 +12,22 @@
 param(
     [string]$Configuration = 'Release',
     [string]$OutputDirectory,
-    [string]$Version = '3.0.0',
+    [string]$Version,
     [switch]$IncludePrerequisites,
     [switch]$SkipTests
 )
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $root 'dist' }
+
+# the release number lives in Directory.Build.props only (calendar versioning YYYY.MM.N, see docs/RELEASE.md)
+$props = [xml](Get-Content -LiteralPath (Join-Path $root 'Directory.Build.props') -Raw)
+$propsVersion = ($props.Project.PropertyGroup.VhaVersion | Select-Object -First 1).Trim()
+if (-not $Version) { $Version = $propsVersion }
+if ($Version -ne $propsVersion) { throw "Version '$Version' differs from Directory.Build.props ($propsVersion): change the number there, not here" }
+if ($Version -notmatch '^20\d\d\.(0[1-9]|1[0-2])\.[1-9]\d*$') { throw "Version '$Version' is not a calendar version YYYY.MM.N" }
+$changelog = Get-Content -LiteralPath (Join-Path $root 'CHANGELOG.md') -Raw
+if ($changelog -notmatch "(?m)^## \[$([regex]::Escape($Version))\] - \d{4}-\d{2}-\d{2}") { throw "CHANGELOG.md has no entry '## [$Version] - yyyy-mm-dd'" }
 
 function Invoke-Checked([string]$What, [scriptblock]$Block) {
     & $Block
@@ -54,6 +63,8 @@ Copy-Item (Join-Path $root 'examples') (Join-Path $stage 'examples') -Recurse
 Copy-Item (Join-Path $root 'installer/Setup.cmd')   $stage
 Copy-Item (Join-Path $root 'installer/LEGGIMI.txt') $stage
 Copy-Item (Join-Path $root 'README.md')              $stage
+Copy-Item (Join-Path $root 'CHANGELOG.md')           $stage
+Set-Content -LiteralPath (Join-Path $stage 'VERSION.txt') -Value $Version -Encoding ascii
 New-Item -ItemType Directory -Force -Path (Join-Path $stage 'prereq') | Out-Null
 Copy-Item (Join-Path $root 'installer/prereq/*') (Join-Path $stage 'prereq') -Recurse
 
@@ -66,7 +77,7 @@ $required = @('setup/VhaSetup.exe', 'setup/Vha.Core.dll', 'setup/Vha.Infrastruct
     'bin/ClusteredService/ClusteredService.exe', 'bin/ClusteredService/Vha.Core.dll', 'bin/ClusteredService/Vha.Infrastructure.dll', 'bin/ClusteredService/Microsoft.Win32.TaskScheduler.dll',
     'bin/CsuCmd/CsuCmd.exe', 'bin/CsuCmd/Vha.Core.dll', 'bin/CsuCmd/Vha.Infrastructure.dll', 'bin/CsuCmd/Microsoft.Win32.TaskScheduler.dll',
     'sql/01_schema.sql', 'sql/02_register_availability_group.sql', 'sql/03_register_databases.sql', 'sql/04_attach_script_generator.sql', 'sql/05_health_check.sql',
-    'Setup.cmd', 'LEGGIMI.txt', 'examples/vha-deployment.example.json', 'prereq/Get-Prerequisites.ps1')
+    'Setup.cmd', 'LEGGIMI.txt', 'VERSION.txt', 'CHANGELOG.md', 'examples/vha-deployment.example.json', 'prereq/Get-Prerequisites.ps1')
 $missing = $required | Where-Object { -not (Test-Path (Join-Path $stage $_)) }
 if ($missing) { throw "The package is incomplete, missing: $($missing -join ', ')" }
 # a reference-only System.Management.Automation.dll next to the programs would shadow the real Windows PowerShell assembly at run time

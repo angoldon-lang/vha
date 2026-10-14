@@ -112,6 +112,14 @@ namespace Vha.Core.Vmware
                  + " if ($d.IsReadOnly) { Set-Disk -InputObject $d -IsReadOnly $false -ErrorAction Stop } }";
         }
 
+        /// <summary>Emits the configured ids that no local Windows disk matches.</summary>
+        public static string MissingLocalDisks(IEnumerable<ConfiguredDisk> disks)
+        {
+            var ids = string.Join(",", disks.Select(d => PsQuote.Single(d.UniqueId)));
+            return "$ids = @(" + ids + "); $local = @(Get-Disk); foreach ($id in $ids) { $d = $local | Where-Object { $_.UniqueId -eq $id -or ($_.SerialNumber -and $_.SerialNumber.Trim() -eq $id) };"
+                 + " if (-not $d) { 'MISSING:' + $id } }";
+        }
+
         /// <summary>Windows disks with serial number and the first mount path / drive of their partitions.</summary>
         public const string WindowsDisksScript =
             "Get-Disk | ForEach-Object { $disk = $_; $paths = @(Get-Partition -DiskNumber $disk.Number -ErrorAction SilentlyContinue | ForEach-Object { $_.AccessPaths } | Where-Object { $_ -and $_ -notlike '\\\\?\\Volume*' });"

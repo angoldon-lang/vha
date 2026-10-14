@@ -104,6 +104,35 @@ namespace Vha.Infrastructure.Tests
         }
 
         [SqlFact]
+        public void Node_restart_while_vcenter_is_down_brings_the_databases_online_from_local_evidence()
+        {
+            var env = Prepare();
+            env.FailoverTo("VM2", Lab.ConnB("Jelena"));
+            // VM2 reboots (databases offline, service restarts) and vCenter is gone
+            Lab.Exec(Lab.ConnB(), "ALTER DATABASE Sales SET OFFLINE WITH ROLLBACK IMMEDIATE");
+            env.VC.Down = true;
+            var r = env.FailoverTo("VM2", Lab.ConnB("Jelena"));
+            Assert.Equal(FailoverOutcome.StartedWithoutVCenter, r.Outcome);
+            Assert.Equal("0", Convert.ToString(Lab.Scalar(Lab.ConnB(), "SELECT state FROM sys.databases WHERE name = 'Sales'")));
+            Assert.Equal(1000, Rows(Lab.ConnB(), Db));
+            Assert.Equal("csu-enable", env.J.Events.Last());
+        }
+
+        [SqlFact]
+        public void Failover_to_the_other_node_while_vcenter_is_down_is_refused_and_nothing_changes()
+        {
+            var env = Prepare();
+            env.VC.Down = true;
+            env.Guest.LocalMissing.Add("AAA"); env.Guest.LocalMissing.Add("BBB");   // VM2 does not see the disks: they are on VM1
+            var ex = Assert.Throws<FailoverException>(() => env.FailoverTo("VM2", Lab.ConnB("Jelena")));
+            Assert.Contains("without vCenter", ex.Message);
+            Assert.Equal(1000, Rows(Lab.ConnA(), Db));
+            Assert.False(Exists(Lab.ConnB(), Db));
+            Assert.Equal("VM1", Convert.ToString(Lab.Scalar(Lab.ConnB("Jelena"), "SELECT CurrentOwner FROM dbo.JAGroups")));
+            Assert.Equal("csu-enable", env.J.Events.Last());
+        }
+
+        [SqlFact]
         public void Rerunning_the_service_on_the_active_node_is_harmless()
         {
             var env = Prepare();

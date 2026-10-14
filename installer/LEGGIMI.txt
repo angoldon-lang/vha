@@ -1,4 +1,4 @@
-vHA 3.0 - pacchetto di installazione
+vHA - pacchetto di installazione (versione nel file VERSION.txt)
 ====================================
 
 Contenuto

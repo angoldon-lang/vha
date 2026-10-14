@@ -82,6 +82,8 @@ namespace Vha.Core.Setup
         public int ReservationCpuMHz { get; set; }
         public int ReservationMemMB { get; set; }
         public OwnerPolicy OwnerUnreachablePolicy { get; set; } = OwnerPolicy.Force;
+        /// <summary>If vCenter is down at start, bring the databases online when all the disks are already on this VM.</summary>
+        public bool LocalStartWithoutVCenter { get; set; } = true;
         public int CsuWaitSeconds { get; set; } = 120;
         public int FailoverTimeoutSeconds { get; set; } = 900;
         /// <summary>Longest wait for the previous owner to detach the databases before it is treated as unresponsive.</summary>

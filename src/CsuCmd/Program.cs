@@ -19,6 +19,7 @@ namespace CsuCmd
 
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--version") { Console.WriteLine(Vha.VersionInfo.Banner("vHA CsuCmd")); return 0; }
             if (args.Length == 1 && args[0] == "--protect")
             {
                 Console.Error.WriteLine("Password (stdin):");
@@ -49,7 +50,7 @@ namespace CsuCmd
                 if (!owned) { log.Warn("Previous CSU run for " + ag + " is still active, skipping this run"); return 0; }
                 try
                 {
-                    log.Info("CSU started: VM=" + vm + " AG=" + ag + " instance=" + instance);
+                    log.Info("CSU started (vHA " + Vha.VersionInfo.Current + "): VM=" + vm + " AG=" + ag + " instance=" + instance);
                     using (var ps = new PowerShellHost())
                     using (var cfg = new SqlConfigStore(instance, ""))
                     using (var vc = new PowerCliVCenter(ps, log))

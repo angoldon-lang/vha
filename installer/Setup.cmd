@@ -7,7 +7,7 @@ if not "%~1"=="" ( "%SETUP%" %* & exit /b %ERRORLEVEL% )
 
 :menu
 echo.
-echo  vHA 3.0 - installazione guidata
+echo  vHA - installazione guidata
 echo  --------------------------------
 echo   1. Crea o modifica il file di configurazione (wizard)
 echo   2. Mostra cosa verra' fatto su questo nodo (piano)

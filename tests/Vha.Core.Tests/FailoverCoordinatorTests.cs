@@ -57,6 +57,77 @@ namespace Vha.Core.Tests
         }
 
         [Fact]
+        public void VCenter_down_with_all_disks_present_locally_starts_databases_without_vcenter()
+        {
+            var f = new Fx();
+            f.VC.Down = true;
+            f.Store.Ag.CurrentOwner = "VM1";
+            var r = f.Build().Run();
+            Assert.Equal(FailoverOutcome.StartedWithoutVCenter, r.Outcome);
+            Assert.Equal("VM2", f.Store.Ag.CurrentOwner);
+            Assert.True(f.J.IndexOf("guest-online") < f.J.IndexOf("dbs-online"));
+            Assert.Equal(-1, f.J.IndexOf("release-dbs:VM1"));
+            Assert.DoesNotContain(f.J.Events, e => e.StartsWith("remove:") || e.StartsWith("add:"));
+            Assert.Equal("csu-enable", f.J.Events.Last());
+        }
+
+        [Fact]
+        public void VCenter_down_with_a_disk_missing_locally_fails_without_changing_anything()
+        {
+            var f = new Fx();
+            f.VC.Down = true;
+            f.Guest.LocalMissing.Add("BBB");
+            var ex = Assert.Throws<FailoverException>(() => f.Build().Run());
+            Assert.Contains("BBB", ex.Message);
+            Assert.DoesNotContain(f.J.Events, e => e.StartsWith("remove:") || e.StartsWith("add:") || e.StartsWith("owner:") || e == "dbs-online" || e == "guest-online");
+            Assert.Equal("csu-enable", f.J.Events.Last());
+        }
+
+        [Fact]
+        public void VCenter_down_with_local_start_disabled_fails_and_does_not_probe()
+        {
+            var f = new Fx("[Failover]\nLocalStartWithoutVCenter=N\n");
+            f.VC.Down = true;
+            Assert.ThrowsAny<Exception>(() => f.Build().Run());
+            Assert.DoesNotContain(f.J.Events, e => e == "probe-local" || e == "dbs-online");
+        }
+
+        [Fact]
+        public void VCenter_down_and_failing_probe_fails_safely()
+        {
+            var f = new Fx();
+            f.VC.Down = true; f.Guest.ProbeThrows = true;
+            Assert.Throws<FailoverException>(() => f.Build().Run());
+            Assert.DoesNotContain(f.J.Events, e => e == "dbs-online" || e == "guest-online");
+        }
+
+        [Fact]
+        public void Disk_on_two_nodes_is_never_masked_by_the_local_start()
+        {
+            var f = new Fx();
+            f.VC.Attach("VM2", "2016", Data, "AAA");
+            Assert.Throws<FailoverException>(() => f.Build().Run());
+            Assert.DoesNotContain(f.J.Events, e => e == "probe-local" || e == "dbs-online");
+        }
+
+        [Fact]
+        public void Unavailable_vcenter_stand_in_throws_on_every_call()
+        {
+            var v = new UnavailableVCenter(new InvalidOperationException("boom"));
+            Assert.Throws<VCenterUnavailableException>(() => v.GetDisks("x"));
+            Assert.Throws<VCenterUnavailableException>(() => v.GetVm("x"));
+            Assert.Throws<VCenterUnavailableException>(() => v.DatastoreFileExists("x"));
+        }
+
+        [Fact]
+        public void LocalStartWithoutVCenter_setting_parses_and_rejects_garbage()
+        {
+            Assert.True(new Fx().Settings.LocalStartWithoutVCenter);
+            Assert.False(new Fx("[Failover]\nLocalStartWithoutVCenter=n\n").Settings.LocalStartWithoutVCenter);
+            Assert.Throws<InvalidOperationException>(() => new Fx("[Failover]\nLocalStartWithoutVCenter=maybe\n"));
+        }
+
+        [Fact]
         public void Restart_on_the_node_that_already_owns_the_disks_only_brings_databases_online()
         {
             var f = new Fx();

@@ -19,6 +19,14 @@ namespace Vha.Infrastructure.PowerShell
             _ps.Invoke(PowerCliScripts.SetDiskOffline(disks, node.DnsName));
         }
 
+        public IReadOnlyList<ConfiguredDisk> MissingLocally(IReadOnlyList<ConfiguredDisk> disks)
+        {
+            if (disks.Count == 0) return disks;
+            var output = _ps.Invoke(PowerCliScripts.MissingLocalDisks(disks));
+            var missing = new HashSet<string>(output.Select(o => (o?.ToString() ?? "").Trim()).Where(o => o.StartsWith("MISSING:")).Select(o => o.Substring(8)), System.StringComparer.Ordinal);
+            return disks.Where(d => missing.Contains(d.UniqueId)).ToList();
+        }
+
         public void SetOnlineLocal(IReadOnlyList<ConfiguredDisk> disks)
         {
             if (disks.Count == 0) return;

@@ -18,6 +18,11 @@ jobs:
         run: tests/integration/start-lab.sh
       - name: Integration tests (real SQL Server 2025, real PowerShell engine)
         run: dotnet test tests/Vha.Infrastructure.Tests --configuration Release --logger "trx;LogFileName=results-infra.trx"
+      - name: Release tag must match the version in Directory.Build.props
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          v=$(sed -n 's:.*<VhaVersion>\(.*\)</VhaVersion>.*:\1:p' Directory.Build.props)
+          [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "tag ${GITHUB_REF_NAME} != v$v"; exit 1; }
       - name: Build the installation package
         run: pwsh -File installer/Build-Package.ps1 -SkipTests
       - uses: actions/upload-artifact@v4

@@ -264,6 +264,23 @@ function Add-StubWinDisk { param($Number, $Serial, $UniqueId = $null, $SizeGB = 
         }
 
         [Fact]
+        public void Probe_reports_exactly_the_disks_windows_does_not_see()
+        {
+            using var h = NewHost();
+            h.Invoke(StorageStubs);
+            h.Invoke(@"Add-StubWinDisk 1 '6000C29B0001  ' ; Add-StubWinDisk 2 'X2' -UniqueId 'OTHERID'");
+            var g = new GuestDisks(h, new ListLog());
+            var all = new[] { new ConfiguredDisk { UniqueId = "6000C29B0001" }, new ConfiguredDisk { UniqueId = "OTHERID" }, new ConfiguredDisk { UniqueId = "GONE" }, new ConfiguredDisk { UniqueId = "GONE2" } };
+            Assert.Equal(new[] { "GONE", "GONE2" }, g.MissingLocally(all).Select(d => d.UniqueId).ToArray());
+            Assert.Empty(g.MissingLocally(all.Take(2).ToList()));
+            Assert.Empty(g.MissingLocally(new ConfiguredDisk[0]));
+            // read only: the probe never changes a disk
+            Assert.Equal("False", h.Invoke("[string]($global:Disks | Where-Object Number -eq 1).IsOffline").Single().ToString());
+            // quotes cannot break out of the script
+            Assert.Equal(1, g.MissingLocally(new[] { new ConfiguredDisk { UniqueId = "A'; throw 'injected'; '" } }).Count);
+        }
+
+        [Fact]
         public void Unique_id_with_quotes_cannot_break_out_of_the_script()
         {
             using var h = NewHost();
@@ -352,6 +369,7 @@ function Add-StubWinDisk { param($Number, $Serial, $UniqueId = $null, $SizeGB = 
                 yield return new object[] { PowerCliScripts.GetDisks(n) };
                 yield return new object[] { PowerCliScripts.DatastoreFileExists("[ds] " + n) };
                 yield return new object[] { PowerCliScripts.SetDiskOffline(new[] { new ConfiguredDisk { UniqueId = n } }, n) };
+                yield return new object[] { PowerCliScripts.MissingLocalDisks(new[] { new ConfiguredDisk { UniqueId = n }, new ConfiguredDisk { UniqueId = "b" } }) };
                 yield return new object[] { PowerCliScripts.SetDiskOnlineLocal(new[] { new ConfiguredDisk { UniqueId = n }, new ConfiguredDisk { UniqueId = "b" } }) };
                 foreach (var a in new[] { DiskAction.Add, DiskAction.Remove })
                 {

@@ -88,7 +88,13 @@ namespace Vha.Core.Failover
                 throw new FailoverException("This virtual machine (" + self + ") is not listed in dbo.JNodes for " + ag.Name);
 
             // 1. where are the disks, really?
-            var snapshot = ReadHolders(nodes, disks);
+            HolderSnapshot snapshot;
+            try { snapshot = ReadHolders(nodes, disks); }
+            catch (Exception ex) when (!(ex is FailoverException) && _s.LocalStartWithoutVCenter)
+            {
+                // Nothing has been changed yet: vCenter cannot tell us where the disks are.
+                return StartWithoutVCenter(ag, disks, dbs, self, ex);
+            }
             var onSelf = snapshot.Held.Where(h => Same(h.Vm, self)).ToList();
             var onOthers = snapshot.Held.Where(h => !Same(h.Vm, self)).ToList();
             var free = snapshot.Free;
@@ -294,6 +300,28 @@ namespace Vha.Core.Failover
 
         private sealed class Holder { public string Vm; public ConfiguredDisk Disk; public VmDisk Actual; }
         private sealed class HolderSnapshot { public List<Holder> Held = new List<Holder>(); public List<ConfiguredDisk> Free = new List<ConfiguredDisk>(); }
+
+        /// <summary>vCenter is down. Disks can only be hot-moved through vCenter, but if every AG disk is already visible here the databases can be started safely
+        /// (a VMDK cannot be attached to two VMs at once). Covers service restart, node reboot and vSphere HA restart without vCenter.</summary>
+        private FailoverResult StartWithoutVCenter(AgInfo ag, IReadOnlyList<ConfiguredDisk> disks, IReadOnlyList<ManagedDatabase> dbs, string self, Exception cause)
+        {
+            _log.Warn("vCenter is not available (" + cause.Message + "): checking whether all the hard disks are already present on this machine");
+            IReadOnlyList<ConfiguredDisk> missing;
+            try { missing = _guest.MissingLocally(disks); }
+            catch (Exception ex) { throw new FailoverException("vCenter is not available (" + cause.Message + ") and the local disks cannot be checked: " + ex.Message, ex); }
+            if (missing.Count > 0)
+                throw new FailoverException("vCenter is not available (" + cause.Message + ") and " + missing.Count + " hard disk(s) are not present on this machine ("
+                    + string.Join(", ", missing.Select(d => d.UniqueId)) + "): the disks cannot be moved without vCenter. Restore vCenter and retry.", cause);
+            _log.Warn("All " + disks.Count + " hard disks are present locally: starting the databases without vCenter");
+            if (!Same(ag.CurrentOwner, self))
+            {
+                _log.Warn("CurrentOwner is '" + ag.CurrentOwner + "', correcting it");
+                PublishOwner(ag, self);
+            }
+            _guest.SetOnlineLocal(disks);
+            _local.BringOnline(dbs);
+            return new FailoverResult { Outcome = FailoverOutcome.StartedWithoutVCenter };
+        }
 
         private HolderSnapshot ReadHolders(IEnumerable<NodeInfo> nodes, IReadOnlyList<ConfiguredDisk> disks)
         {

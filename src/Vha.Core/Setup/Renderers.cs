@@ -50,6 +50,7 @@ namespace Vha.Core.Setup
             sb.AppendLine("CsuWaitSeconds=" + ag.CsuWaitSeconds.ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("FailoverTimeoutSeconds=" + ag.FailoverTimeoutSeconds.ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("ReleaseTimeoutSeconds=" + ag.ReleaseTimeoutSeconds.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("LocalStartWithoutVCenter=" + (ag.LocalStartWithoutVCenter ? "Y" : "N"));
             return sb.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n");
         }
 

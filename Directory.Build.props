@@ -1,0 +1,11 @@
+<Project>
+  <!-- Single source of truth for the release number. Calendar versioning: YYYY.MM.N (N restarts from 1 every month). See docs/RELEASE.md -->
+  <PropertyGroup>
+    <VhaVersion>2026.10.1</VhaVersion>
+    <Version>$(VhaVersion)</Version>
+    <AssemblyVersion>$(VhaVersion).0</AssemblyVersion>
+    <FileVersion>$(VhaVersion).0</FileVersion>
+    <InformationalVersion>$(VhaVersion)</InformationalVersion>
+    <Product>vHA</Product>
+  </PropertyGroup>
+</Project>

@@ -117,6 +117,7 @@ namespace Vha.Core.Setup
                     Int("Secondi di attesa del CSU prima di fermarlo", p + ".csuWaitSeconds", () => a.CsuWaitSeconds, v => a.CsuWaitSeconds = v);
                     Int("Durata massima dell'avvio del servizio in secondi", p + ".failoverTimeoutSeconds", () => a.FailoverTimeoutSeconds, v => a.FailoverTimeoutSeconds = v);
                     Int("Attesa massima del rilascio dei database sul vecchio proprietario in secondi", p + ".releaseTimeoutSeconds", () => a.ReleaseTimeoutSeconds, v => a.ReleaseTimeoutSeconds = v);
+                    a.LocalStartWithoutVCenter = YesNo("Se vCenter non risponde all'avvio, mettere online i database quando tutti i dischi sono già su questa VM?", a.LocalStartWithoutVCenter);
                     Int("Livello di log del CSU (1 errori, 2 info, 3 debug)", p + ".csuLogLevel", () => a.CsuLogLevel, v => a.CsuLogLevel = v);
                     Int("Intervallo del CSU in secondi (multiplo di 60)", p + ".csuIntervalSeconds", () => a.CsuIntervalSeconds, v => a.CsuIntervalSeconds = v);
                     Text("Opzioni di connessione SQL", p + ".sqlOptions", () => a.SqlOptions, v => a.SqlOptions = v, allowEmpty: true);

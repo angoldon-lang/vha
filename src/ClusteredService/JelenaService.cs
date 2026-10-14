@@ -23,7 +23,7 @@ namespace ClusteredService
             {
                 var settings = ServiceSettings.FromIni(IniDocument.Load(Path.Combine(baseDir, "jelena.ini")), name);
                 log = new FileLog(Path.Combine(baseDir, name + "-Log"), settings.LogRetentionDays);
-                log.Info("************* STARTING OPERATIONS (service " + name + ") *************");
+                log.Info("************* STARTING OPERATIONS (service " + name + ", vHA " + Vha.VersionInfo.Current + ") *************");
 
                 // The SCM gives a service 30 seconds to start; a failover can take minutes. Keep START_PENDING alive.
                 using (new Timer(_ => { try { RequestAdditionalTime(60000); } catch (Exception) { } }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10)))

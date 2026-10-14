@@ -52,7 +52,10 @@ namespace ClusteredService
                         Step("Disks on " + n.VmName, () =>
                         {
                             var vm = vc.GetVm(n.VmName); var vd = vc.GetDisks(n.VmName);
-                            var held = disks.Where(d => DiskMatcher.Find(d, vd).Kind != MatchKind.None).Select(d => d.DeviceKey).ToList();
+                            var matches = disks.Select(d => DiskMatcher.Find(d, vd)).Where(m => m.Kind != MatchKind.None).ToList();
+                            var wrong = matches.Where(m => !DiskIdentity.SameDisk(m.Configured.UniqueId, m.Actual.Uuid)).Select(m => m.Configured.DeviceKey).ToList();
+                            if (wrong.Count > 0) throw new Exception("UniqueId in JDisks does not match the disk UUID in vCenter for device key(s) " + string.Join(",", wrong) + ": the guest disks would not be found at failover");
+                            var held = matches.Select(m => m.Configured.DeviceKey).ToList();
                             var noUuid = vd.Count(d => string.IsNullOrWhiteSpace(d.Uuid));
                             if (noUuid > 0) throw new Exception(noUuid + " disk(s) without UUID: set disk.EnableUUID=TRUE");
                             return vm.PowerState + ", snapshots " + vm.SnapshotCount + ", holds [" + string.Join(",", held) + "]";

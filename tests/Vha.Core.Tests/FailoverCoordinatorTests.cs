@@ -251,6 +251,42 @@ namespace Vha.Core.Tests
         }
 
         [Fact]
+        public void An_owner_that_connects_but_hangs_while_releasing_is_handled_by_the_policy_force_goes_on()
+        {
+            var f = new Fx();
+            f.Conn.ReleaseUnresponsive = true;
+            var r = f.Build().Run();
+            Assert.Equal(FailoverOutcome.Completed, r.Outcome);
+            Assert.True(f.Log.Has("did not complete the release of the databases in time"));
+            Assert.DoesNotContain("guest-offline:VM1", f.J.Events);   // nothing is asked of a hung node
+            Assert.Equal(2, f.VC.Disks["VM2"].Count);
+        }
+
+        [Fact]
+        public void An_owner_that_connects_but_hangs_while_releasing_aborts_with_the_abort_policy_and_changes_nothing()
+        {
+            var f = new Fx("[Failover]\nOwnerUnreachablePolicy=Abort\n");
+            f.Conn.ReleaseUnresponsive = true;
+            Assert.Throws<FailoverException>(() => f.Build().Run());
+            Assert.DoesNotContain(f.J.Events, e => e.StartsWith("owner") || e.StartsWith("remove") || e.StartsWith("add"));
+            Assert.Equal(2, f.VC.Disks["VM1"].Count);
+        }
+
+        [Fact]
+        public void A_winrm_failure_while_setting_the_disks_offline_follows_the_policy()
+        {
+            var force = new Fx(); force.Guest.OfflineThrows = true;
+            Assert.Equal(FailoverOutcome.Completed, force.Build().Run().Outcome);
+            Assert.True(force.Log.Has("Could not set the disks offline"));
+            Assert.True(force.J.Has("release-dbs:VM1"));            // the databases were released first
+
+            var abort = new Fx("[Failover]\nOwnerUnreachablePolicy=Abort\n"); abort.Guest.OfflineThrows = true;
+            var ex = Assert.Throws<FailoverException>(() => abort.Build().Run());
+            Assert.Contains("failover aborted", ex.Message);
+            Assert.DoesNotContain(abort.J.Events, e => e.StartsWith("remove") || e.StartsWith("owner"));
+        }
+
+        [Fact]
         public void Failure_to_release_databases_on_a_reachable_owner_aborts_before_detaching()
         {
             var f = new Fx();

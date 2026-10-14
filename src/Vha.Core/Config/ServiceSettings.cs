@@ -15,6 +15,7 @@ namespace Vha.Core.Config
         public OwnerUnreachablePolicy UnreachablePolicy { get; private set; } = OwnerUnreachablePolicy.Force;
         public TimeSpan CsuWaitTimeout { get; private set; } = TimeSpan.FromSeconds(120);
         public TimeSpan FailoverTimeout { get; private set; } = TimeSpan.FromMinutes(15);
+        public TimeSpan ReleaseTimeout { get; private set; } = TimeSpan.FromSeconds(300);
         public int LogRetentionDays { get; private set; } = 31;
         /// <summary>Extra connection string options for the local Jelena database, e.g. "Encrypt=True;TrustServerCertificate=True".</summary>
         public string SqlOptions { get; private set; } = "";
@@ -53,6 +54,7 @@ namespace Vha.Core.Config
             }
             s.CsuWaitTimeout = Seconds(ini, "Failover", "CsuWaitSeconds", 120, 1, 3600);
             s.FailoverTimeout = Seconds(ini, "Failover", "FailoverTimeoutSeconds", 900, 30, 7200);
+            s.ReleaseTimeout = Seconds(ini, "Failover", "ReleaseTimeoutSeconds", 300, 10, 3600);
             s.LogRetentionDays = (int)Seconds(ini, "General", "LogRetentionDays", 31, 1, 3650).TotalSeconds;
             return s;
         }

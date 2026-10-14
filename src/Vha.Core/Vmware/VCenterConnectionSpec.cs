@@ -94,6 +94,10 @@ namespace Vha.Core.Vmware
 
         private sealed class Token { public string Value; public bool Quoted; }
 
+        // PowerShell treats these typographic characters as quotes too (a doubled quote of the same family is a literal quote)
+        private static bool IsSingleQuote(char c) => c == '\'' || c == '\u2018' || c == '\u2019' || c == '\u201A' || c == '\u201B';
+        private static bool IsDoubleQuote(char c) => c == '"' || c == '\u201C' || c == '\u201D' || c == '\u201E';
+
         private static List<Token> Tokenize(string s)
         {
             var list = new List<Token>();
@@ -103,20 +107,22 @@ namespace Vha.Core.Vmware
                 if (char.IsWhiteSpace(s[i])) { i++; continue; }
                 var sb = new StringBuilder();
                 bool quoted = false;
-                if (s[i] == '\'' || s[i] == '"')
+                if (IsSingleQuote(s[i]) || IsDoubleQuote(s[i]))
                 {
                     quoted = true;
-                    char q = s[i++];
+                    bool dbl = IsDoubleQuote(s[i]);
+                    i++;
                     bool closed = false;
                     while (i < s.Length)
                     {
-                        if (s[i] == q)
+                        var c = s[i];
+                        if (dbl ? IsDoubleQuote(c) : IsSingleQuote(c))
                         {
-                            if (i + 1 < s.Length && s[i + 1] == q) { sb.Append(q); i += 2; continue; }
+                            if (i + 1 < s.Length && (dbl ? IsDoubleQuote(s[i + 1]) : IsSingleQuote(s[i + 1]))) { sb.Append(c); i += 2; continue; }
                             i++; closed = true; break;
                         }
-                        if (q == '"' && (s[i] == '`' || s[i] == '$')) throw new FormatException("Escape or variable characters are not allowed inside double quotes; use single quotes");
-                        sb.Append(s[i++]);
+                        if (dbl && (c == '`' || c == '$')) throw new FormatException("Escape or variable characters are not allowed inside double quotes; use single quotes");
+                        sb.Append(c); i++;
                     }
                     if (!closed) throw new FormatException("Unterminated quote in ConnectVCenter");
                     if (i < s.Length && !char.IsWhiteSpace(s[i])) throw new FormatException("Unexpected characters after closing quote");
@@ -126,7 +132,7 @@ namespace Vha.Core.Vmware
                     while (i < s.Length && !char.IsWhiteSpace(s[i]))
                     {
                         var c = s[i];
-                        if (c == ';' || c == '|' || c == '&' || c == '`' || c == '$' || c == '(' || c == ')' || c == '{' || c == '}' || c == '\'' || c == '"')
+                        if (c == ';' || c == '|' || c == '&' || c == '`' || c == '$' || c == '(' || c == ')' || c == '{' || c == '}' || IsSingleQuote(c) || IsDoubleQuote(c))
                             throw new FormatException("Character '" + c + "' is not allowed in an unquoted ConnectVCenter value; enclose the value in single quotes");
                         sb.Append(c); i++;
                     }

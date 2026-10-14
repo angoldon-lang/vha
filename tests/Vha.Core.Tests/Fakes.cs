@@ -128,19 +128,20 @@ namespace Vha.Core.Tests
         private readonly Journal _j;
         public Dictionary<string, ConnectStatus> Status = new Dictionary<string, ConnectStatus>(StringComparer.OrdinalIgnoreCase);
         public bool ReleaseThrows;
+        public bool ReleaseUnresponsive;
         public FakeConnector(Journal j) { _j = j; }
 
         public NodeConnection Connect(NodeInfo node)
         {
             var st = Status.TryGetValue(node.VmName, out var s) ? s : ConnectStatus.Connected;
-            return st == ConnectStatus.Connected ? new NodeConnection(st, new FakeSqlNode(_j, node.VmName, ReleaseThrows)) : new NodeConnection(st, null, "fake");
+            return st == ConnectStatus.Connected ? new NodeConnection(st, new FakeSqlNode(_j, node.VmName, ReleaseThrows, ReleaseUnresponsive)) : new NodeConnection(st, null, "fake");
         }
 
         private sealed class FakeSqlNode : ISqlNode
         {
-            private readonly Journal _j; private readonly string _n; private readonly bool _throw;
-            public FakeSqlNode(Journal j, string n, bool t) { _j = j; _n = n; _throw = t; }
-            public void ReleaseDatabases(IReadOnlyList<ManagedDatabase> d) { if (_throw) throw new InvalidOperationException("detach failed"); _j.Add("release-dbs:" + _n); }
+            private readonly Journal _j; private readonly string _n; private readonly bool _throw, _hung;
+            public FakeSqlNode(Journal j, string n, bool t, bool hung) { _j = j; _n = n; _throw = t; _hung = hung; }
+            public void ReleaseDatabases(IReadOnlyList<ManagedDatabase> d) { if (_hung) throw new NodeUnresponsiveException("stuck"); if (_throw) throw new InvalidOperationException("detach failed"); _j.Add("release-dbs:" + _n); }
             public void Dispose() { }
         }
     }
@@ -148,8 +149,9 @@ namespace Vha.Core.Tests
     public sealed class FakeGuest : IGuestDisks
     {
         private readonly Journal _j;
+        public bool OfflineThrows;
         public FakeGuest(Journal j) { _j = j; }
-        public void SetOffline(NodeInfo node, IReadOnlyList<ConfiguredDisk> disks) => _j.Add("guest-offline:" + node.VmName);
+        public void SetOffline(NodeInfo node, IReadOnlyList<ConfiguredDisk> disks) { if (OfflineThrows) throw new InvalidOperationException("WinRM: the client cannot connect"); _j.Add("guest-offline:" + node.VmName); }
         public void SetOnlineLocal(IReadOnlyList<ConfiguredDisk> disks) => _j.Add("guest-online");
     }
 

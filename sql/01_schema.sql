@@ -54,18 +54,44 @@ IF OBJECT_ID(N'dbo.SCN', N'U') IS NULL
 
 IF OBJECT_ID(N'dbo.JDBFileGroups', N'U') IS NULL
     CREATE TABLE dbo.JDBFileGroups (
-        JAGroupsID INT NOT NULL, DBName VARCHAR(100) NOT NULL, ID INT NOT NULL,
+        JAGroupsID INT NOT NULL, DBName NVARCHAR(128) NOT NULL, ID INT NOT NULL,
         FGName NVARCHAR(100) NOT NULL, FGTypeDesc NVARCHAR(200) NOT NULL,
         CONSTRAINT PK_JDBFileGroups PRIMARY KEY CLUSTERED (JAGroupsID, DBName, ID));
 
 IF OBJECT_ID(N'dbo.JDBFiles', N'U') IS NULL
     CREATE TABLE dbo.JDBFiles (
-        JAGroupsID INT NOT NULL, file_id INT NOT NULL, DBName VARCHAR(100) NOT NULL, JDBFileGroupsID INT NOT NULL,
-        LogicalName NVARCHAR(100) NOT NULL, PhysicalName NVARCHAR(255) NOT NULL,
+        JAGroupsID INT NOT NULL, file_id INT NOT NULL, DBName NVARCHAR(128) NOT NULL, JDBFileGroupsID INT NOT NULL,
+        LogicalName NVARCHAR(128) NOT NULL, PhysicalName NVARCHAR(512) NOT NULL,
         CONSTRAINT PK_JDBFiles PRIMARY KEY CLUSTERED (JAGroupsID, DBName, file_id));
 
 IF OBJECT_ID(N'dbo.JXLog', N'U') IS NULL
     CREATE TABLE dbo.JXLog (
         ID INT IDENTITY(1,1), JAGroupsID INT, MsgType VARCHAR(10), Message VARCHAR(1000),
         [date] DATETIME NOT NULL CONSTRAINT DF_JXLog_Date DEFAULT (GETDATE()));
+
+/*
+  Upgrade from 2.0.0: JDBFiles/JDBFileGroups had DBName VARCHAR(100), so database names with characters outside the server code page were stored
+  as '?' and could not be found again at failover. Both tables are derived data (rebuilt by the CSU); the column is widened in place, rows are kept.
+*/
+SET XACT_ABORT ON;
+DECLARE @t TABLE (tbl SYSNAME, pkcols NVARCHAR(200));
+INSERT @t VALUES (N'JDBFiles', N'(JAGroupsID, DBName, file_id)'), (N'JDBFileGroups', N'(JAGroupsID, DBName, ID)');
+DECLARE @tbl SYSNAME, @cols NVARCHAR(200), @pk SYSNAME, @sql NVARCHAR(MAX);
+DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT tbl, pkcols FROM @t;
+OPEN c; FETCH NEXT FROM c INTO @tbl, @cols;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'dbo.' + @tbl) AND name = N'DBName' AND system_type_id = 167)   -- 167 = varchar
+    BEGIN
+        BEGIN TRAN;
+        SELECT @pk = name FROM sys.key_constraints WHERE parent_object_id = OBJECT_ID(N'dbo.' + @tbl) AND type = 'PK';
+        IF @pk IS NOT NULL BEGIN SET @sql = N'ALTER TABLE dbo.' + QUOTENAME(@tbl) + N' DROP CONSTRAINT ' + QUOTENAME(@pk); EXEC (@sql); END
+        SET @sql = N'ALTER TABLE dbo.' + QUOTENAME(@tbl) + N' ALTER COLUMN DBName NVARCHAR(128) NOT NULL'; EXEC (@sql);
+        SET @sql = N'ALTER TABLE dbo.' + QUOTENAME(@tbl) + N' ADD CONSTRAINT ' + QUOTENAME(ISNULL(@pk, N'PK_' + @tbl)) + N' PRIMARY KEY CLUSTERED ' + @cols; EXEC (@sql);
+        COMMIT;
+        PRINT N'dbo.' + @tbl + N'.DBName widened to NVARCHAR(128)';
+    END
+    FETCH NEXT FROM c INTO @tbl, @cols;
+END
+CLOSE c; DEALLOCATE c;
 GO

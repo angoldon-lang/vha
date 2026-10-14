@@ -89,6 +89,12 @@ namespace Vha.Core.Failover
         public FailoverException(string message, Exception inner) : base(message, inner) { }
     }
 
+    /// <summary>The node answered the connection but did not complete a command in time (hung instance, frozen VM): same meaning as an unreachable node for the policy.</summary>
+    public sealed class NodeUnresponsiveException : Exception
+    {
+        public NodeUnresponsiveException(string message, Exception inner = null) : base(message, inner) { }
+    }
+
     public enum FailoverOutcome { AlreadyOwner, Completed, FailbackRequired }
 
     public sealed class FailoverResult

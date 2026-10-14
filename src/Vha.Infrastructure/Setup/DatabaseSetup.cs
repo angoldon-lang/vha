@@ -46,7 +46,7 @@ namespace Vha.Infrastructure.Setup
             void Say(string m) { report.Add(m); _log.Info(m); }
 
             // 1. database
-            using (var master = Open(Retry(() => _connection(node, ag, "master"))))
+            using (var master = Vha.Core.Util.Retry.Run(() => Open(_connection(node, ag, "master")), 6, TimeSpan.FromSeconds(5), Vha.Infrastructure.Sql.SqlNodeConnector.IsTransient, (n, ex) => _log.Warn("SQL Server not ready (attempt " + n + "/6): " + ex.Message)))
             {
                 var exists = Scalar(master, "SELECT DB_ID(N'Jelena')") != null;
                 if (!exists)
@@ -113,8 +113,8 @@ namespace Vha.Infrastructure.Setup
                         var udata = dataDir + _sep + "UserData"; var ulog = logDir + _sep + "UserLog";
                         Directory.CreateDirectory(udata); Directory.CreateDirectory(ulog);
                         var n = SqlText.QuoteName(ag.DummyDatabaseName);
-                        Exec(conn, "CREATE DATABASE " + n + " ON PRIMARY (NAME = N'Dummy', FILENAME = " + SqlText.Literal(udata + _sep + ag.DummyDatabaseName + ".mdf") + ", SIZE = 51200KB, FILEGROWTH = 51200KB) "
-                                 + "LOG ON (NAME = N'Dummy_log', FILENAME = " + SqlText.Literal(ulog + _sep + ag.DummyDatabaseName + "_log.ldf") + ", SIZE = 10240KB, FILEGROWTH = 10240KB)");
+                        Exec(conn, "CREATE DATABASE " + n + " ON PRIMARY (NAME = N'Dummy', FILENAME = " + SqlText.FileLiteral(udata + _sep + ag.DummyDatabaseName + ".mdf") + ", SIZE = 51200KB, FILEGROWTH = 51200KB) "
+                                 + "LOG ON (NAME = N'Dummy_log', FILENAME = " + SqlText.FileLiteral(ulog + _sep + ag.DummyDatabaseName + "_log.ldf") + ", SIZE = 10240KB, FILEGROWTH = 10240KB)");
                         Say("database " + ag.DummyDatabaseName + " created on the group disks");
                     }
                     else Say("database " + ag.DummyDatabaseName + " already exists");
@@ -149,8 +149,6 @@ namespace Vha.Infrastructure.Setup
                 foreach (var batch in SqlScriptTemplate.Batches(text))
                     using (var cmd = c.CreateCommand()) { cmd.CommandText = batch; cmd.CommandTimeout = 120; cmd.ExecuteNonQuery(); }
         }
-
-        private string Retry(Func<string> f) => f();
 
         private static void Exec(SqlConnection c, string sql, params SqlParameter[] p) { using (var cmd = Cmd(c, null, sql, 120, p)) cmd.ExecuteNonQuery(); }
         private static object Scalar(SqlConnection c, string sql, params SqlParameter[] p) { using (var cmd = Cmd(c, null, sql, 60, p)) { var r = cmd.ExecuteScalar(); return r is DBNull ? null : r; } }

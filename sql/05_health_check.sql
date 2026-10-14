@@ -19,6 +19,8 @@ UNION ALL SELECT a.Name, 'database ' + j.DBName + ' is registered but not descri
 WHERE NOT EXISTS (SELECT 1 FROM dbo.JDBFiles f WHERE f.JAGroupsID = j.JAGroupsID AND f.DBName = j.DBName)
 UNION ALL SELECT a.Name, 'CSU flag Is_CSU_Working = Y (running, or a crashed run left it set)' FROM dbo.JAGroups a WHERE a.Is_CSU_Working = 'Y'
 UNION ALL SELECT a.Name, 'owner is ' + ISNULL(a.CurrentOwner, 'NULL') + ' (transitioning or unknown)' FROM dbo.JAGroups a WHERE ISNULL(a.CurrentOwner, '##transitioning##') = '##transitioning##'
+UNION ALL SELECT N'(schema)', 'dbo.' + OBJECT_NAME(c.object_id) + '.DBName is VARCHAR: database names with non Latin characters cannot be managed (run 01_schema.sql to widen JDBFiles/JDBFileGroups; widen JDatabases manually)'
+FROM sys.columns c WHERE c.name = 'DBName' AND c.system_type_id = 167 AND OBJECT_NAME(c.object_id) IN ('JDBFiles', 'JDBFileGroups', 'JDatabases')
 UNION ALL SELECT N'(setting)', 'JSettings.ConnectVCenter contains a clear text password: use -Password dpapi:... (CsuCmd.exe --protect)'
 FROM dbo.JSettings WHERE SettingName = 'ConnectVCenter' AND SettingValue LIKE '%-Password%' AND SettingValue NOT LIKE '%-Password dpapi:%'
 UNION ALL SELECT d.name, 'user database not registered in JDatabases of any availability group (it will not follow the disks)'

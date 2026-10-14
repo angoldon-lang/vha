@@ -195,6 +195,7 @@ namespace Vha.Infrastructure.Tests
             // reached but refused: configuration errors abort the failover instead of looking like a dead node
             Assert.Throws<SqlException>(() => c.Connect(new NodeInfo { VmName = "X", ConnectionString = Lab.Conn(14331, "master", "sa", "wrong-password") }));
             Assert.Throws<SqlException>(() => c.Connect(new NodeInfo { VmName = "X", ConnectionString = Lab.Conn(14331, "NoSuchDatabase") }));
+            // a frozen instance ("Connection Timeout Expired ... pre-login handshake") is a timeout, not a TLS problem (see HangTests)
             // untrusted certificate (self-signed server, Encrypt=True, no TrustServerCertificate) is a configuration problem too
             Assert.Throws<SqlException>(() => c.Connect(new NodeInfo { VmName = "X", ConnectionString = "Server=localhost,14331;User Id=sa;Password=" + Lab.Password + ";Encrypt=True;Connection Timeout=5" }));
         }
@@ -470,6 +471,61 @@ namespace Vha.Infrastructure.Tests
             Assert.Contains("Database=Jelena", full); Assert.Contains("Connection Timeout=15", full); Assert.EndsWith("TrustServerCertificate=True", full);
             Assert.Throws<ArgumentException>(() => SqlHelper.LocalConnectionString(" ", ""));
             Assert.Equal("Server=h;Initial Catalog=Other", SqlHelper.LocalConnectionString("Server=h;Initial Catalog=Other;Connection Timeout=3;Application Name=x", "").Replace(";Connection Timeout=3;Application Name=x", ""));
+        }
+    }
+}
+
+namespace Vha.Infrastructure.Tests
+{
+    public class SchemaAndStateRegressionTests
+    {
+        [SqlFact]
+        public void Schema_script_widens_the_2_0_0_varchar_columns_in_place_keeping_the_rows()
+        {
+            Lab.Reset(registerAg: false);
+            var a = Lab.ConnA("Jelena");
+            Lab.Exec(a, "DROP TABLE dbo.JDBFiles; DROP TABLE dbo.JDBFileGroups");
+            // the definitions of 2.0.0
+            Lab.Exec(a, "CREATE TABLE dbo.JDBFileGroups(JAGroupsID INT, DBName VARCHAR(100) NOT NULL, ID INT NOT NULL, FGName NVARCHAR(100) NOT NULL, FGTypeDesc NVARCHAR(200) NOT NULL, CONSTRAINT PK_JDBFileGroups PRIMARY KEY CLUSTERED (JAGroupsID, DBName, ID))");
+            Lab.Exec(a, "CREATE TABLE dbo.JDBFiles(JAGroupsID INT, file_id INT, DBName VARCHAR(100) NOT NULL, JDBFileGroupsID INT NOT NULL, LogicalName NVARCHAR(100) NOT NULL, PhysicalName NVARCHAR(255) NOT NULL, CONSTRAINT PK_JDBFiles PRIMARY KEY CLUSTERED (JAGroupsID, DBName, file_id))");
+            Lab.Exec(a, "INSERT dbo.JDBFiles VALUES (1, 1, 'Sales', 1, N'l', N'M:\\x.mdf'), (1, 2, 'Sales', 0, N'l2', N'M:\\x.ldf'); INSERT dbo.JDBFileGroups VALUES (1, 'Sales', 1, N'PRIMARY', N'ROWS_FILEGROUP')");
+            // the defect of 2.0.0: a non Latin name is stored as question marks and can never be found again
+            Lab.Exec(a, "INSERT dbo.JDBFiles VALUES (1, 1, N'\u65E5\u672C\u8A9E', 1, N'l', N'p')");
+            Assert.Equal("???", Convert.ToString(Lab.Scalar(a, "SELECT DBName FROM dbo.JDBFiles WHERE DBName <> 'Sales'")));
+            Lab.Exec(a, "DELETE dbo.JDBFiles WHERE DBName <> 'Sales'");
+
+            Lab.RunScript(a, "01_schema.sql");
+            Lab.RunScript(a, "01_schema.sql");   // second run: nothing left to do
+
+            Assert.Equal("231", Convert.ToString(Lab.Scalar(a, "SELECT system_type_id FROM sys.columns WHERE object_id = OBJECT_ID('dbo.JDBFiles') AND name = 'DBName'")));       // nvarchar
+            Assert.Equal("231", Convert.ToString(Lab.Scalar(a, "SELECT system_type_id FROM sys.columns WHERE object_id = OBJECT_ID('dbo.JDBFileGroups') AND name = 'DBName'")));
+            Assert.Equal("2", Convert.ToString(Lab.Scalar(a, "SELECT COUNT(*) FROM dbo.JDBFiles WHERE DBName = 'Sales'")));
+            Assert.Equal("1", Convert.ToString(Lab.Scalar(a, "SELECT COUNT(*) FROM dbo.JDBFileGroups WHERE DBName = 'Sales'")));
+            Lab.Exec(a, "INSERT dbo.JDBFiles VALUES (1, 1, N'\u65E5\u672C\u8A9E', 1, N'l', N'p')");
+            Assert.Equal("\u65E5\u672C\u8A9E", Convert.ToString(Lab.Scalar(a, "SELECT DBName FROM dbo.JDBFiles WHERE DBName = N'\u65E5\u672C\u8A9E'")));
+            Assert.Equal(1, Lab.Rows(a, "SELECT name FROM sys.key_constraints WHERE parent_object_id = OBJECT_ID('dbo.JDBFiles') AND type = 'PK'").Count);
+        }
+
+        [SqlFact]
+        public void An_offline_database_with_stale_metadata_is_brought_online_with_the_files_as_the_other_node_left_them()
+        {
+            Lab.Reset();
+            var d = Lab.Dir("ag01");
+            Lab.Exec(Lab.ConnA(), $"CREATE DATABASE Pub ON (NAME=p1, FILENAME=N'{d}/data/pub.mdf') LOG ON (NAME=pl, FILENAME=N'{d}/log/pub.ldf')");
+            Lab.Exec(Lab.ConnA(), "USE Pub; CREATE TABLE t(id INT PRIMARY KEY); INSERT t SELECT TOP (1000) ROW_NUMBER() OVER (ORDER BY (SELECT 1)) FROM sys.all_objects a CROSS JOIN sys.all_objects b; CHECKPOINT");
+            Lab.Exec(Lab.ConnA("Jelena"), "INSERT dbo.JDatabases VALUES (1, N'Pub', N'x')");
+            new Vha.Infrastructure.Csu.SqlCsuStore(Lab.ConnA("Jelena")).DescribeDatabases(1);
+            // node A releases it like a published database (OFFLINE, metadata kept) ...
+            Lab.Exec(Lab.ConnA(), Vha.Core.Sql.AttachScriptBuilder.BuildOffline("Pub"));
+            // ... node B uses it for a while: more rows, a new file ...
+            Lab.Exec(Lab.ConnB(), $"CREATE DATABASE Pub ON (FILENAME=N'{d}/data/pub.mdf'),(FILENAME=N'{d}/log/pub.ldf') FOR ATTACH; ALTER DATABASE Pub ADD FILE (NAME=p2, FILENAME=N'{d}/data/pub2.ndf')");
+            Lab.Exec(Lab.ConnB("Pub"), "INSERT t SELECT TOP (4000) 10000+ROW_NUMBER() OVER (ORDER BY (SELECT 1)) FROM sys.all_objects a CROSS JOIN sys.all_objects b; CHECKPOINT");
+            Lab.Exec(Lab.ConnB(), Vha.Core.Sql.AttachScriptBuilder.BuildDetach("Pub"));
+            // ... and the disks come back to A, which still has the stale OFFLINE entry
+            using var cfg = new Vha.Infrastructure.Sql.SqlConfigStore(Lab.ConnA("Jelena"), "");
+            new Vha.Infrastructure.Sql.LocalSql(Lab.ConnA("Jelena"), "", 1, cfg, Vha.Core.Logging.NullLog.Instance).BringOnline(cfg.GetDatabases(1));
+            Assert.Equal("5000", Convert.ToString(Lab.Scalar(Lab.ConnA(), "SELECT COUNT(*) FROM Pub.dbo.t")));
+            Assert.Equal("0", Convert.ToString(Lab.Scalar(Lab.ConnA(), "SELECT state FROM sys.databases WHERE name = 'Pub'")));
         }
     }
 }

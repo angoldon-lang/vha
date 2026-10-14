@@ -49,6 +49,7 @@ namespace Vha.Core.Setup
             sb.AppendLine("OwnerUnreachablePolicy=" + ag.OwnerUnreachablePolicy);
             sb.AppendLine("CsuWaitSeconds=" + ag.CsuWaitSeconds.ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("FailoverTimeoutSeconds=" + ag.FailoverTimeoutSeconds.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("ReleaseTimeoutSeconds=" + ag.ReleaseTimeoutSeconds.ToString(CultureInfo.InvariantCulture));
             return sb.ToString().Replace("\r\n", "\n").Replace("\n", "\r\n");
         }
 
@@ -132,6 +133,8 @@ namespace Vha.Core.Setup
                 }
                 value = value ?? "";
                 if (value.IndexOf('\0') >= 0) throw new ArgumentException("Value of " + name + " contains NUL");
+                // T-SQL drops "backslash + line break" inside a literal (line continuation): values never legitimately contain line breaks
+                if (value.IndexOf('\r') >= 0 || value.IndexOf('\n') >= 0) throw new ArgumentException("Value of " + name + " contains a line break");
                 if (Numeric.Contains(name))
                 {
                     if (!Regex.IsMatch(value, @"^[0-9]{1,9}$")) throw new ArgumentException("Value of " + name + " must be a non-negative integer");

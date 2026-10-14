@@ -137,6 +137,7 @@ namespace Vha.Core.Tests
             yield return Case("availabilityGroups[0].csuWaitSeconds", c => c.AvailabilityGroups[0].CsuWaitSeconds = 0);
             yield return Case("availabilityGroups[0].failoverTimeoutSeconds", c => c.AvailabilityGroups[0].FailoverTimeoutSeconds = 10);
             yield return Case("availabilityGroups[0].csuLogLevel", c => c.AvailabilityGroups[0].CsuLogLevel = 4);
+            yield return Case("availabilityGroups[0].releaseTimeoutSeconds", c => c.AvailabilityGroups[0].ReleaseTimeoutSeconds = 5);
             yield return Case("availabilityGroups[0].csuIntervalSeconds", c => c.AvailabilityGroups[0].CsuIntervalSeconds = 30);
             yield return Case("availabilityGroups[0].csuIntervalSeconds", c => c.AvailabilityGroups[0].CsuIntervalSeconds = 90);
             yield return Case("availabilityGroups[0].sqlOptions", c => c.AvailabilityGroups[0].SqlOptions = "Encrypt=True\r\n[Evil]");
@@ -199,7 +200,7 @@ namespace Vha.Core.Tests
         public void Generated_ini_is_read_back_by_the_service_exactly()
         {
             var c = Sample.Valid(); c.AvailabilityGroups[0].ReservationEnabled = true; c.AvailabilityGroups[0].ReservationCpuMHz = 100; c.AvailabilityGroups[0].ReservationMemMB = 200;
-            c.AvailabilityGroups[0].OwnerUnreachablePolicy = OwnerPolicy.Abort; c.AvailabilityGroups[0].CsuWaitSeconds = 45; c.AvailabilityGroups[0].FailoverTimeoutSeconds = 600;
+            c.AvailabilityGroups[0].OwnerUnreachablePolicy = OwnerPolicy.Abort; c.AvailabilityGroups[0].CsuWaitSeconds = 45; c.AvailabilityGroups[0].FailoverTimeoutSeconds = 600; c.AvailabilityGroups[0].ReleaseTimeoutSeconds = 77;
             var ag = c.AvailabilityGroups[0]; var node = c.Nodes[1];
             var s = ServiceSettings.FromIni(IniDocument.Parse(IniRenderer.Render(c, ag, node)), ag.ServiceName);
             Assert.Equal("SQLVM02", s.VirtualMachineName);
@@ -209,6 +210,7 @@ namespace Vha.Core.Tests
             Assert.Equal(OwnerUnreachablePolicy.Abort, s.UnreachablePolicy);
             Assert.Equal(TimeSpan.FromSeconds(45), s.CsuWaitTimeout);
             Assert.Equal(TimeSpan.FromSeconds(600), s.FailoverTimeout);
+            Assert.Equal(TimeSpan.FromSeconds(77), s.ReleaseTimeout);
             Assert.Equal("CSU - ISQL2025A - isql2025a-AG01", s.TaskName);
             Assert.Equal("Encrypt=True;TrustServerCertificate=True", s.SqlOptions);
         }

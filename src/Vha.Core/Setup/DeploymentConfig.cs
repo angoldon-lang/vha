@@ -84,6 +84,8 @@ namespace Vha.Core.Setup
         public OwnerPolicy OwnerUnreachablePolicy { get; set; } = OwnerPolicy.Force;
         public int CsuWaitSeconds { get; set; } = 120;
         public int FailoverTimeoutSeconds { get; set; } = 900;
+        /// <summary>Longest wait for the previous owner to detach the databases before it is treated as unresponsive.</summary>
+        public int ReleaseTimeoutSeconds { get; set; } = 300;
         /// <summary>Extra connection options, e.g. "Encrypt=True;TrustServerCertificate=True" (required by SQL Server 2022/2025 when the certificate is self signed).</summary>
         public string SqlOptions { get; set; } = "Encrypt=True;TrustServerCertificate=True";
         /// <summary>1 = errors and warnings, 2 = info (default), 3 = debug.</summary>

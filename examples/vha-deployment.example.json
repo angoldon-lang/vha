@@ -37,6 +37,7 @@
       "ownerUnreachablePolicy": "Force",    // Force | Abort
       "csuWaitSeconds": 120,
       "failoverTimeoutSeconds": 900,
+      "releaseTimeoutSeconds": 300,         // max wait for a stuck previous owner to release the databases (then the policy decides)
       "sqlOptions": "Encrypt=True;TrustServerCertificate=True",
       "csuLogLevel": 2,
       "csuIntervalSeconds": 60,

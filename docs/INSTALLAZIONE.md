@@ -44,7 +44,7 @@ Impostazioni principali (tutte nel file, tutte con valore predefinito sensato):
 | `serviceAccount`, `taskAccount` | account del servizio e del task CSU |
 | `cluster.*` | nome, IP, witness (`FileShare`/`None`), soglia di failover opzionale |
 | `nodes[]` | `vmName` (nome in vCenter) e `dnsName` |
-| `availabilityGroups[]` | `name`, `instanceName`, `sqlPort`, `mountRoot`, `diskNameFilter`, `initialOwner`, `listenerName/Ip`, riserve CPU/memoria, `ownerUnreachablePolicy` (Force/Abort), tempi, `sqlOptions`, intervallo e log del CSU, database Dummy, nome del task |
+| `availabilityGroups[]` | `name`, `instanceName`, `sqlPort`, `mountRoot`, `diskNameFilter`, `initialOwner`, `listenerName/Ip`, riserve CPU/memoria, `ownerUnreachablePolicy` (Force/Abort), tempi (`csuWaitSeconds`, `failoverTimeoutSeconds`, `releaseTimeoutSeconds`), `sqlOptions`, intervallo e log del CSU, database Dummy, nome del task |
 
 ## 3. Installare
 Su **ogni nodo**, da amministratore:
@@ -108,4 +108,4 @@ Scenari di failover (con DB di prova a più file/filegroup, due AG sulla stessa 
 
 ## 8. Installazione manuale (senza setup)
 Restano valide le parti 2.0.0 per cui non c'è automazione (AD, pre-staging del CNO, layout dei dischi). `jelena.ini` e script SQL: vedi `sql\` e `docs\ANALISI.md`.
-Chiavi `jelena.ini`: `[AG]` `Instance` (anche stringa di connessione completa se contiene `=`), `SqlOptions`; `[Failover]` `OwnerUnreachablePolicy`, `CsuWaitSeconds`, `FailoverTimeoutSeconds`; `[General]` `LogRetentionDays`.
+Chiavi `jelena.ini`: `[AG]` `Instance` (anche stringa di connessione completa se contiene `=`), `SqlOptions`; `[Failover]` `OwnerUnreachablePolicy`, `CsuWaitSeconds`, `FailoverTimeoutSeconds`, `ReleaseTimeoutSeconds`; `[General]` `LogRetentionDays`.

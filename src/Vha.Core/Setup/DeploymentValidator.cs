@@ -46,6 +46,7 @@ namespace Vha.Core.Setup
         {
             var r = new ValidationResult();
             if (c == null) { r.Error("config", "missing"); return r; }
+            ControlCharacters(r, "", c);
             if (c.SchemaVersion != 1) r.Error("schemaVersion", "unsupported version " + c.SchemaVersion + " (expected 1)");
 
             Path(r, "installDirectory", c.InstallDirectory, allowRoot: false);
@@ -126,6 +127,8 @@ namespace Vha.Core.Setup
                 if (!Enum.IsDefined(typeof(OwnerPolicy), a.OwnerUnreachablePolicy)) r.Error(p + ".ownerUnreachablePolicy", "Force or Abort");
                 if (a.CsuWaitSeconds < 1 || a.CsuWaitSeconds > 3600) r.Error(p + ".csuWaitSeconds", "1..3600");
                 if (a.FailoverTimeoutSeconds < 30 || a.FailoverTimeoutSeconds > 7200) r.Error(p + ".failoverTimeoutSeconds", "30..7200");
+                if (a.ReleaseTimeoutSeconds < 10 || a.ReleaseTimeoutSeconds > 3600) r.Error(p + ".releaseTimeoutSeconds", "10..3600");
+                else if (a.ReleaseTimeoutSeconds >= a.FailoverTimeoutSeconds) r.Warn(p + ".releaseTimeoutSeconds", "not shorter than failoverTimeoutSeconds: a stuck previous owner would use the whole failover time");
                 if (a.CsuLogLevel < 1 || a.CsuLogLevel > 3) r.Error(p + ".csuLogLevel", "1, 2 or 3");
                 if (a.CsuIntervalSeconds < 60 || a.CsuIntervalSeconds > 3600 || a.CsuIntervalSeconds % 60 != 0) r.Error(p + ".csuIntervalSeconds", "a multiple of 60 between 60 and 3600 (Task Scheduler repeats at whole minutes; the guide recommends 60)");
                 if (!OptionsRx.IsMatch(a.SqlOptions ?? "")) r.Error(p + ".sqlOptions", "only letters, digits and = ; . _ , : \\ / - are allowed");
@@ -137,6 +140,28 @@ namespace Vha.Core.Setup
             }
             // two AGs on the same instance/drive are legal, two AGs with the same name on different instances are not
             return r;
+        }
+
+        /// <summary>No text field may contain a control character (they break XML, INI and command lines).</summary>
+        private static void ControlCharacters(ValidationResult r, string prefix, object o)
+        {
+            if (o == null) return;
+            foreach (var p in o.GetType().GetProperties())
+            {
+                if (p.GetIndexParameters().Length > 0 || !p.CanWrite) continue;   // computed properties follow their sources
+                var name = prefix + (prefix.Length == 0 ? "" : ".") + char.ToLowerInvariant(p.Name[0]) + p.Name.Substring(1);
+                var v = p.GetValue(o);
+                if (v is string str)
+                {
+                    if (str.Any(ch => char.IsControl(ch))) r.Error(name, "contains a control character");
+                }
+                else if (v is System.Collections.IList list)
+                {
+                    for (int i = 0; i < list.Count; i++) ControlCharacters(r, name + "[" + i + "]", list[i]);
+                }
+                else if (v != null && p.PropertyType.IsClass && p.PropertyType.Namespace == typeof(DeploymentConfig).Namespace)
+                    ControlCharacters(r, name, v);
+            }
         }
 
         private static void Account(ValidationResult r, string path, string account)

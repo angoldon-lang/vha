@@ -18,11 +18,35 @@ namespace Vha.Core.Sql
             return "[" + name.Replace("]", "]]") + "]";
         }
 
-        /// <summary>Returns a unicode string literal N'value' with quotes doubled.</summary>
+        /// <summary>
+        /// Returns a unicode string EXPRESSION for use in SELECT/WHERE/SET: N'value' with quotes doubled.
+        /// T-SQL treats a backslash followed by a line break inside a literal as a line continuation and silently drops both, so line breaks are never
+        /// emitted raw: they become NCHAR(13)/NCHAR(10) concatenations. Where only a pure literal is allowed (FILENAME = ..., EXEC parameters) use
+        /// <see cref="FileLiteral"/> or assign this expression to a variable first.
+        /// </summary>
         public static string Literal(string value)
         {
             if (value == null) throw new ArgumentNullException(nameof(value));
             if (value.IndexOf('\0') >= 0) throw new ArgumentException("Literal contains NUL", nameof(value));
+            if (value.IndexOf('\r') < 0 && value.IndexOf('\n') < 0) return "N'" + value.Replace("'", "''") + "'";
+            var sb = new StringBuilder();
+            var run = new StringBuilder();
+            void Flush() { if (run.Length > 0) { if (sb.Length > 0) sb.Append(" + "); sb.Append("N'").Append(run.ToString().Replace("'", "''")).Append('\''); run.Clear(); } }
+            foreach (var c in value)
+            {
+                if (c == '\r' || c == '\n') { Flush(); if (sb.Length > 0) sb.Append(" + "); sb.Append(c == '\r' ? "NCHAR(13)" : "NCHAR(10)"); }
+                else run.Append(c);
+            }
+            Flush();
+            return "(" + sb + ")";
+        }
+
+        /// <summary>A pure string literal (no expression), for places such as FILENAME = N'...'. File names cannot contain line breaks.</summary>
+        public static string FileLiteral(string value)
+        {
+            if (value == null) throw new ArgumentNullException(nameof(value));
+            if (value.IndexOf('\0') >= 0) throw new ArgumentException("Literal contains NUL", nameof(value));
+            if (value.IndexOf('\r') >= 0 || value.IndexOf('\n') >= 0) throw new ArgumentException("A file name cannot contain line breaks", nameof(value));
             return "N'" + value.Replace("'", "''") + "'";
         }
     }

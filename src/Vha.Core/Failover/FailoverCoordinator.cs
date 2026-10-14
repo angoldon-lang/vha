@@ -259,20 +259,37 @@ namespace Vha.Core.Failover
             }
             using (var conn = _connector.Connect(node))
             {
-                switch (conn.Status)
+                if (conn.Status == ConnectStatus.Connected)
                 {
-                    case ConnectStatus.Connected:
+                    try
+                    {
                         conn.Node.ReleaseDatabases(dbs);
-                        _guest.SetOffline(node, heldDisks);
-                        break;
-                    default:
-                        var why = conn.Status == ConnectStatus.Timeout ? "timed out" : "not available";
+                    }
+                    catch (NodeUnresponsiveException ex)
+                    {
+                        // connected, then stuck: for the policy this node is as good as unreachable
+                        HandleUnreachable(node, vm, "did not complete the release of the databases in time: " + ex.Message);
+                        return;
+                    }
+                    try { _guest.SetOffline(node, heldDisks); }
+                    catch (Exception ex)
+                    {
+                        // the guest-level offline is a courtesy (flush before the hot remove); the databases are already released
                         if (_s.UnreachablePolicy == OwnerUnreachablePolicy.Abort)
-                            throw new FailoverException("SQL Server on " + node.VmName + " is " + why + " while the VM is powered on (" + vm.PowerState + "); OwnerUnreachablePolicy=Abort, failover aborted. " + conn.Detail);
-                        _log.Warn("SQL Server on " + node.VmName + " is " + why + " while the VM is powered on; OwnerUnreachablePolicy=Force, the disks will be detached anyway. " + conn.Detail);
-                        break;
+                            throw new FailoverException("Could not set the disks offline on " + node.VmName + " (OwnerUnreachablePolicy=Abort, failover aborted): " + ex.Message, ex);
+                        _log.Error("Could not set the disks offline on " + node.VmName + " (" + ex.Message + "); OwnerUnreachablePolicy=Force: the databases are released, the disks will be detached anyway");
+                    }
+                    return;
                 }
+                HandleUnreachable(node, vm, (conn.Status == ConnectStatus.Timeout ? "timed out" : "not available") + ". " + conn.Detail);
             }
+        }
+
+        private void HandleUnreachable(NodeInfo node, VmInfo vm, string why)
+        {
+            if (_s.UnreachablePolicy == OwnerUnreachablePolicy.Abort)
+                throw new FailoverException("SQL Server on " + node.VmName + " is " + why + " while the VM is powered on (" + vm.PowerState + "); OwnerUnreachablePolicy=Abort, failover aborted.");
+            _log.Warn("SQL Server on " + node.VmName + " is " + why + " The VM is powered on; OwnerUnreachablePolicy=Force, the disks will be detached anyway.");
         }
 
         private sealed class Holder { public string Vm; public ConfiguredDisk Disk; public VmDisk Actual; }

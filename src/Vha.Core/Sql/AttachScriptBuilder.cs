@@ -25,7 +25,7 @@ namespace Vha.Core.Sql
             {
                 var path = (list[i].PhysicalName ?? "").Trim();
                 if (path.Length == 0) throw new ArgumentException("Database " + dbName + ": empty physical name for file_id " + list[i].FileId, nameof(files));
-                sb.Append("(FILENAME = ").Append(SqlText.Literal(path)).Append(')');
+                sb.Append("(FILENAME = ").Append(SqlText.FileLiteral(path)).Append(')');
                 sb.Append(i < list.Count - 1 ? ",\r\n" : "\r\n");
             }
             sb.Append("FOR ATTACH");
@@ -35,17 +35,17 @@ namespace Vha.Core.Sql
         /// <summary>Batch used on the node that gives the database away (non published databases).</summary>
         public static string BuildDetach(string dbName)
         {
-            var q = SqlText.QuoteName(dbName);
-            var l = SqlText.Literal(dbName);
-            return "IF EXISTS (SELECT 1 FROM sys.databases WHERE name = " + l + ")\r\nBEGIN\r\n"
-                 + "  ALTER DATABASE " + q + " SET SINGLE_USER WITH ROLLBACK IMMEDIATE;\r\n"
-                 + "  EXEC master.dbo.sp_detach_db @dbname = " + l + ";\r\nEND";
+            return "DECLARE @n NVARCHAR(128) = " + SqlText.Literal(dbName) + ";\r\n"
+                 + "IF EXISTS (SELECT 1 FROM sys.databases WHERE name = @n)\r\nBEGIN\r\n"
+                 + "  ALTER DATABASE " + SqlText.QuoteName(dbName) + " SET SINGLE_USER WITH ROLLBACK IMMEDIATE;\r\n"
+                 + "  EXEC master.dbo.sp_detach_db @dbname = @n;\r\nEND";
         }
 
         /// <summary>Batch used for databases that are published (replication): they cannot be detached.</summary>
         public static string BuildOffline(string dbName)
         {
-            return "IF EXISTS (SELECT 1 FROM sys.databases WHERE name = " + SqlText.Literal(dbName) + ")\r\n"
+            return "DECLARE @n NVARCHAR(128) = " + SqlText.Literal(dbName) + ";\r\n"
+                 + "IF EXISTS (SELECT 1 FROM sys.databases WHERE name = @n)\r\n"
                  + "  ALTER DATABASE " + SqlText.QuoteName(dbName) + " SET OFFLINE WITH ROLLBACK IMMEDIATE";
         }
 

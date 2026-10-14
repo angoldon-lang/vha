@@ -4,7 +4,7 @@ Rifacimento controllato di vHA 2.0.0 (VB.NET, solo binari) in C#, con i difetti 
 Il meccanismo è quello originale: i dischi (VMDK) di dati e log di un availability group vengono staccati dalla VM che li usa e
 agganciati alla VM che diventa attiva; un servizio in cluster (WSFC) fa il lavoro, un task schedulato (CSU) tiene allineata la configurazione.
 
-> **Stato.** Compila e supera oltre 550 test automatici, tra cui test d'integrazione contro **SQL Server 2025 reale** e **PowerShell reale**, iniezione di guasti sul failover, nodi congelati, crash, prova di durata (20 failover con scritture continue) e test a proprietà su migliaia di stringhe ostili.
+> **Stato.** Compila e supera 550 test automatici, tra cui test d'integrazione contro **SQL Server 2025 reale** e **PowerShell reale**, iniezione di guasti sul failover, nodi congelati, crash, prova di durata (20 failover con scritture continue) e test a proprietà su migliaia di stringhe ostili.
 > **Non è mai stato eseguito su Windows, vCenter e cluster reali**: prima della produzione servono le prove del capitolo "Collaudo" in `docs/INSTALLAZIONE.md` (elenco dei rischi residui in `docs/VERIFICA.md`).
 > Il codice è stato ricostruito dalla decompilazione di `ClusteredService.exe`/`CsuCmd.exe` 2.0.0: vedi `docs/ANALISI.md` per cosa è cambiato e perché.
 

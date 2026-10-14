@@ -5,7 +5,7 @@ Obiettivo: nessun errore in produzione. Nessuna suite di test lo garantisce; qui
 ## Cosa è stato eseguito
 | Livello | Come | Prova |
 |---|---|---|
-| Logica (failover, CSU, policy, setup) | `tests/Vha.Core.Tests`, 321 test xUnit con fake di vCenter, SQL, cluster, task | scenari, ordine delle operazioni, validazione, generazione di ini/XML/script |
+| Logica (failover, CSU, policy, setup) | `tests/Vha.Core.Tests`, 346 test xUnit con fake di vCenter, SQL, cluster, task | scenari, ordine delle operazioni, validazione, generazione di ini/XML/script |
 | **Iniezione di guasti** | stessi test: 6 situazioni di partenza × **ogni** operazione esterna del failover × (guasto prima / dopo l'effetto) | invarianti: mai un disco su due VM; DB rilasciati prima dello stacco; marcatore prima dello stacco; CSU sempre riabilitato; **un secondo avvio converge sempre** |
 | Mutation test manuali | 17 modifiche dannose reintrodotte a mano nel codice (CSU mai riabilitato, niente rilascio DB, niente marcatore, drop senza controllo dei file, mapping disco per sottostringa, escape SQL assente, validazioni tolte…) | tutte intercettate; una (rollback di un attach parziale) ha richiesto un test in più |
 | **SQL Server 2025 reale** (2 istanze Docker, cartella condivisa = "dischi") | `tests/Vha.Infrastructure.Tests`: gli script `sql/*.sql` eseguiti davvero, config store, connettore, attach/detach di DB con più filegroup e nomi con `'` e `]`, CSU (replica, peer spento, drop dei soli fantasmi), failover completo A→B→A, setup del database su nodo attivo e passivo, idempotenza | dati integri (1000 righe), file tutti presenti, SCN/owner coerenti |
@@ -55,4 +55,4 @@ Verificato e **non** problematico: un database lasciato OFFLINE su un nodo (come
 * Prestazioni e durata del failover con molti database/dischi; storage-specific (vSAN, vVols).
 Per questi punti serve il collaudo su un ambiente Windows/vSphere di prova (`INSTALLAZIONE.md` §6).
 
-Totale al momento della consegna: **512 test** (321 di logica, 191 d'integrazione con SQL Server 2025 e PowerShell reali), tutti verdi.
+Totale al momento della consegna: **550 test** (346 di logica, 204 d'integrazione con SQL Server 2025 e PowerShell reali), tutti verdi.

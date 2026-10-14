@@ -8,7 +8,7 @@ agganciati alla VM che diventa attiva; un servizio in cluster (WSFC) fa il lavor
 > **Non è mai stato eseguito su Windows, vCenter e cluster reali**: prima della produzione servono le prove del capitolo "Collaudo" in `docs/INSTALLAZIONE.md` (elenco dei rischi residui in `docs/VERIFICA.md`).
 > Il codice è stato ricostruito dalla decompilazione di `ClusteredService.exe`/`CsuCmd.exe` 2.0.0: vedi `docs/ANALISI.md` per cosa è cambiato e perché.
 
-**Versione:** numerazione a calendario `AAAA.MM.N` (vedi `CHANGELOG.md`, `docs/RELEASE.md`). **vCenter non disponibile:** vedi `docs/VCENTER.md`.
+**Versione:** numerazione a calendario `AAAA.MM.N` (vedi `CHANGELOG.md`, `docs/RELEASE.md`). **vCenter non disponibile:** vedi `docs/VCENTER.md`. **Licenze e compatibilità:** `docs/LICENZE-E-COMPATIBILITA.md`.
 
 ## Struttura
 | Percorso | Contenuto |

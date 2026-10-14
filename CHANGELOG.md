@@ -9,6 +9,7 @@ Prima versione con numerazione a calendario. Sostituisce la serie di sviluppo "3
 
 ### Novità
 - **Avvio locale senza vCenter** (`[Failover] LocalStartWithoutVCenter=Y`, predefinito Y): se vCenter non risponde ma TUTTI i dischi del gruppo sono già visibili a questa VM, il servizio mette online i database senza vCenter (riavvio del servizio, riavvio della VM, restart di vSphere HA). Se manca anche un solo disco, il failover viene rifiutato senza modificare nulla. Gli spostamenti di dischi tra nodi richiedono sempre vCenter.
+- Documentazione: requisiti di licenza e matrice di compatibilità (`docs/LICENZE-E-COMPATIBILITA.md`), gestione vCenter (`docs/VCENTER.md`).
 - Numero di versione stampato nei log (servizio e CSU), in `--version` di tutti i programmi, in `--check` e nel file `VERSION.txt` del pacchetto.
 
 ### Incluso (rispetto a vHA 2.0.0)

@@ -47,8 +47,10 @@ Legenda: **Provato** = eseguito nei test automatici di questo progetto · **Atte
 | Versione | Stato | Note |
 |---|---|---|
 | SQL Server **2025** (17.x) | **Provato** su SQL Server 2025 per Linux (container, due istanze): attach/detach, failover con dati reali, crash, istanza congelata, prova di durata. **Non provato su Windows.** | Il codice SQL è lo stesso. |
-| SQL Server 2022 / 2019 | **Atteso** | Stesse istruzioni T-SQL. Collaudare. |
-| SQL Server 2017 / 2016 | **Atteso, non consigliato** | Collaudare, versioni fuori dal ciclo mainstream. |
+| SQL Server **2022** (16.x) | **Provato** su SQL Server 2022 per Linux (container, due istanze): stessa suite d'integrazione del 2025, tutti i test verdi, nessuna riga persa nella prova di durata (20 failover con scritture continue). Non provato su Windows. | Immagine `mssql/server:2022-latest`. |
+| SQL Server **2019** (15.x) | **Provato** come sopra (Linux). Non provato su Windows. | Immagine `mssql/server:2019-latest`. |
+| SQL Server **2017** (14.x) | **Provato** come sopra (Linux): 204 test su 204. Non provato su Windows. Fuori dal supporto mainstream Microsoft: non consigliato per nuove installazioni. | Immagine `mssql/server:2017-latest`. |
+| SQL Server 2016 | **Atteso**, non provato | Stesse istruzioni T-SQL. |
 | 2014 e precedenti | **No / ?** | Non valutati. |
 | Edizioni | Standard, Enterprise: atteso · Express/Web: non indicate | |
 | Compatibilità database | Qualsiasi livello supportato dalla versione | I database non cambiano livello con lo spostamento. |
@@ -79,10 +81,10 @@ Legenda: **Provato** = eseguito nei test automatici di questo progetto · **Atte
 | Parametro VM | `disk.EnableUUID = TRUE` obbligatorio (controllato da `--check`) | |
 
 ### 6.4 Ambiente di prova realmente usato
-- SQL Server 2025 per Linux (Docker), due istanze, database attach/detach reali.
+- SQL Server **2025, 2022, 2019, 2017 per Linux** (Docker), due istanze per volta, database attach/detach reali. La prova di durata verifica l'assenza di righe perse; la velocità di scrittura varia con la versione e non è un criterio di compatibilità.
 - PowerShell 7 reale con funzioni sostitutive per `Get-Disk`, `Set-Disk`, PowerCLI.
 - Mono per l'esecuzione degli eseguibili impacchettati (non è .NET Framework).
-- **Mai eseguito** su Windows, vCenter, ESXi o cluster reali.
+- **Mai eseguito** su Windows, vCenter, ESXi o cluster reali. Per certificare questi ambienti usare `scripts/Test-VhaEnvironment.ps1` (sola lettura, produce un report da allegare alla matrice) e il collaudo di `docs/INSTALLAZIONE.md` §6. Una certificazione di vSphere 6.7/7/8 e di SQL Server su Windows richiede l'esecuzione su quegli ambienti: non si può ottenere da un sandbox Linux.
 
 ## 7. Elenco di controllo per l'acquisto
 1. Scelta tra Standard per core (consigliata) e altre modalità; numero di core virtuali per VM (minimo 4).

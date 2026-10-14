@@ -14,7 +14,8 @@ done
 echo "waiting for SQL Server..."
 for n in A B; do
   for i in $(seq 1 60); do
-    if docker exec "sql$n" /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$PASSWORD" -Q "SELECT 1" >/dev/null 2>&1; then echo "sql$n ready"; break; fi
+    # 2022/2025 images ship mssql-tools18 (needs -C), 2017/2019 ship mssql-tools
+    if docker exec "sql$n" sh -c "if [ -x /opt/mssql-tools18/bin/sqlcmd ]; then /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P '$PASSWORD' -Q 'SELECT 1'; else /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P '$PASSWORD' -Q 'SELECT 1'; fi" >/dev/null 2>&1; then echo "sql$n ready"; break; fi
     sleep 2
   done
 done
